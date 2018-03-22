@@ -15,13 +15,12 @@ var (
 )
 
 func main() {
-	config, ok := ReadConfig()
+	var ok bool
+	config, ok = ReadConfig()
 	if !ok {
 		fmt.Println("Error reading config file")
 		return
 	}
-	fmt.Printf("Token: %s\r\n", config.Token)
-	fmt.Printf("Command Prefix: %s\r\n", config.CommandPrefix)
 
 	// Create a new Discord session using the provided bot token.
 	dg, err := discordgo.New("Bot " + config.Token)
@@ -56,24 +55,26 @@ func main() {
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// Ignore all messages created by the bot itself
-	// This isn't required in this specific example but it's a good practice.
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
 
-	fmt.Printf("Token: %s\r\n", config.Token)
-	fmt.Printf("Prefix: %s\r\n", config.CommandPrefix)
-	if strings.HasPrefix(m.Content, config.CommandPrefix+"list") {
-		ListEvents(s, m)
+	// If messages is not a command, bail out
+	if !strings.HasPrefix(m.Content, config.CommandPrefix) {
+		return
+	}
+	command := strings.TrimPrefix(m.Content, config.CommandPrefix)
+	commandElements := strings.Fields(command)
+
+	if strings.HasPrefix(command, "list") {
+		ListEvents(s, m, commandElements)
 	}
 
-	// If the message is "ping" reply with "pong"
-	if m.Content == config.CommandPrefix+"ping" {
-		s.ChannelMessageSend(m.ChannelID, "pong")
+	if strings.HasPrefix(command, "ping") {
+		PingPong(s, m, commandElements)
 	}
 
-	// If the message is "pong" reply with "pong"
-	if m.Content == config.CommandPrefix+"pong" {
-		s.ChannelMessageSend(m.ChannelID, "ping")
+	if strings.HasPrefix(command, "pong") {
+		PingPong(s, m, commandElements)
 	}
 }

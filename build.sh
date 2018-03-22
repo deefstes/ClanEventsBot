@@ -69,6 +69,6 @@ then
 	done
 else
 	echo Building $FileName, BuildNumber=$BuildNumber
-	GOOS=$GOOS GOARCH=$GOARCH go build -o bin/$FileName -ldflags "-X main.buildNumber=$BuildNumber" main.go configuration.go commands.go
+	GOOS=$GOOS GOARCH=$GOARCH go build -o bin/$FileName -ldflags "-X main.buildNumber=$BuildNumber" main.go configuration.go commands.go events.go
 fi
 cp ClanEventsBot.yaml bin

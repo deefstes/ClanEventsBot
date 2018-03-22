@@ -2,14 +2,22 @@ package main
 
 import (
 	"fmt"
-	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-func ListEvents(s *discordgo.Session, m *discordgo.MessageCreate) {
-	words := strings.Fields(m.Content)
-	for _, word := range words {
-		fmt.Println(word)
+func PingPong(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	if command[0] == "ping" {
+		s.ChannelMessageSend(m.ChannelID, "pong")
 	}
+	if command[0] == "pong" {
+		s.ChannelMessageSend(m.ChannelID, "ping")
+	}
+}
+
+func ListEvents(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	ct := time.Now()
+	reply := fmt.Sprintf("%s", ct)
+	s.ChannelMessageSend(m.ChannelID, reply)
 }
