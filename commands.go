@@ -81,7 +81,7 @@ func ListEvents(s *discordgo.Session, m *discordgo.MessageCreate, command []stri
 	c := mongoSession.DB("ClanEvents").C("Events")
 
 	var results []ClanEvent
-	err := c.Find(filter).All(&results)
+	err := c.Find(filter).Sort("dateTime").All(&results)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -680,7 +680,6 @@ func HasRole(s *discordgo.Session, m *discordgo.MessageCreate, role string) bool
 	roleId := ""
 	guild := GetGuild(s, m)
 	for _, guildRole := range guild.Roles {
-		fmt.Printf("%s - %s\r\n", guildRole.Name, guildRole.ID)
 		if guildRole.Name == role {
 			roleId = guildRole.ID
 		}
