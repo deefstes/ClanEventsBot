@@ -4,23 +4,38 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"gopkg.in/mgo.v2"
 )
 
 var (
-	config Configuration
+	config       Configuration
+	mongoSession *mgo.Session
+	impersonated ClanUser
+	timeZone     *time.Location
 )
 
 func main() {
-	var ok bool
-	config, ok = ReadConfig()
-	if !ok {
+	var err error
+	config, err = ReadConfig()
+	if err != nil {
 		fmt.Println("Error reading config file")
 		return
 	}
+
+	timeZone, _ = time.LoadLocation("Europe/London")
+
+	// Connect to MongoDB
+	mongoSession, err = mgo.Dial(config.MongoDB)
+	if err != nil {
+		panic(err)
+	}
+	defer mongoSession.Close()
 
 	// Create a new Discord session using the provided bot token.
 	dg, err := discordgo.New("Bot " + config.Token)
@@ -64,10 +79,46 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 	command := strings.TrimPrefix(m.Content, config.CommandPrefix)
-	commandElements := strings.Fields(command)
+	commandElements := getArgs(command)
 
-	if strings.HasPrefix(command, "list") {
+	if strings.HasPrefix(command, "help") {
+		BotHelp(s, m, commandElements)
+	}
+
+	if strings.HasPrefix(command, "listevents") {
 		ListEvents(s, m, commandElements)
+	}
+
+	if strings.HasPrefix(command, "newevent") {
+		NewEvent(s, m, commandElements)
+	}
+
+	if strings.HasPrefix(command, "cancelevent") {
+		CancelEvent(s, m, commandElements)
+	}
+
+	if strings.HasPrefix(command, "signup") {
+		Signup(s, m, commandElements)
+	}
+
+	if strings.HasPrefix(command, "leave") {
+		Leave(s, m, commandElements)
+	}
+
+	if strings.HasPrefix(command, "impersonate") {
+		Impersonate(s, m, commandElements)
+	}
+
+	if strings.HasPrefix(command, "unimpersonate") {
+		Unimpersonate(s, m, commandElements)
+	}
+
+	if strings.HasPrefix(command, "details") {
+		Details(s, m, commandElements)
+	}
+
+	if strings.HasPrefix(command, "test") {
+		Test(s, m, commandElements)
 	}
 
 	if strings.HasPrefix(command, "ping") {
@@ -77,4 +128,16 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if strings.HasPrefix(command, "pong") {
 		PingPong(s, m, commandElements)
 	}
+}
+
+func getArgs(s string) []string {
+	re := regexp.MustCompile("\".+?\"|'.+?'|\\S+")
+	args := re.FindAllString(s, -1)
+	for i := 0; i < len(args); i++ {
+		args[i] = strings.TrimPrefix(args[i], "\"")
+		args[i] = strings.TrimSuffix(args[i], "\"")
+		args[i] = strings.TrimPrefix(args[i], "'")
+		args[i] = strings.TrimSuffix(args[i], "'")
+	}
+	return args
 }

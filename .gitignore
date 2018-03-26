@@ -15,3 +15,6 @@
 
 # Binaries path
 bin/
+
+# Debug information
+debug
