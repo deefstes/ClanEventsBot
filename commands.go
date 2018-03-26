@@ -187,7 +187,7 @@ func NewEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []string
 	// Test for duration
 	duration, err := strconv.Atoi(command[3])
 	if err != nil {
-		message = fmt.Sprintf("What kind of a duration is %s? EventsBot needs a vacation of %s weeks :beach:", command[3])
+		message = fmt.Sprintf("What kind of a duration is %s? EventsBot needs a vacation of %s weeks :beach:", command[3], command[3])
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -196,7 +196,7 @@ func NewEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []string
 	// Test for size
 	teamSize, err := strconv.Atoi(command[6])
 	if err != nil {
-		message = fmt.Sprintf("How many players you say? %s? EventsBot wouldn't do that if he were you :speak_no_evil:")
+		message = fmt.Sprintf("How many players you say? %s? EventsBot wouldn't do that if he were you :speak_no_evil:", command[6])
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -640,7 +640,7 @@ func Unimpersonate(s *discordgo.Session, m *discordgo.MessageCreate, command []s
 }
 
 func Test(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-	fmt.Sprintf("HasRole: %s", HasRole(s, m, "EventsBotAdmin"))
+
 }
 
 func IsUser(arg string) bool {
