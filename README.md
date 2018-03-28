@@ -1,8 +1,10 @@
 # ClanEventsBot
 [![Go Report Card](https://goreportcard.com/badge/github.com/deefstes/ClanEventsBot)](https://goreportcard.com/report/github.com/deefstes/ClanEventsBot) 
-> Open Source Discord Bot written in Go. This is a simple bot that provides some calendar functionality to a Discord server enabling users to create and sign up to events.
-  
-| Option | Information |
+## Description
+Open Source Discord Bot written in Go. This is a simple bot that provides some calendar functionality to a Discord server enabling users to create and sign up to events.
+
+## Resources
+| Link | Information |
 |:--: | :--: |
 | [Discord Developers](https://discordapp.com/developers/applications/me) | Register a bot account with Discord! |
 | [Discord Go](https://github.com/bwmarrin/discordgo) | DiscordGo Library by: bwmarrin |
