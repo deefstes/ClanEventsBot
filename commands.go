@@ -43,7 +43,7 @@ func ListEvents(s *discordgo.Session, m *discordgo.MessageCreate, command []stri
 		if IsUser(command[1]) {
 			listuser = m.Mentions[0].Username
 		} else if IsDate(command[1]) {
-			specdate, _ = time.ParseInLocation("2006-01-02", command[1], timeZone)
+			specdate, _ = time.ParseInLocation("02/01/2006", command[1], timeZone)
 		} else {
 			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
 			message = fmt.Sprintf("%s\r\nFor help with listing events, type the following:\r\n```%shelp listevents```", message, config.CommandPrefix)
@@ -91,7 +91,7 @@ func ListEvents(s *discordgo.Session, m *discordgo.MessageCreate, command []stri
 	if specdate.IsZero() {
 		reply = "Upcoming clan events"
 	} else {
-		reply = fmt.Sprintf("Clan events on %s", specdate.Format("2006-01-02"))
+		reply = fmt.Sprintf("Clan events on %s", specdate.Format("Mon 02/01/2006"))
 	}
 	reply = fmt.Sprintf("%s for %s\r\n", reply, listuser)
 	if len(results) == 0 {
@@ -99,7 +99,7 @@ func ListEvents(s *discordgo.Session, m *discordgo.MessageCreate, command []stri
 	} else {
 		reply = fmt.Sprintf("%s```", reply)
 		for _, event := range results {
-			reply = fmt.Sprintf("%s[%s] %s - %s -", reply, event.EventId, event.DateTime.In(timeZone).Format("2006-01-02 15:04"), event.Name)
+			reply = fmt.Sprintf("%s[%s] %s - %s -", reply, event.EventId, event.DateTime.In(timeZone).Format("Mon 02/01/2006 15:04"), event.Name)
 			for _, participant := range event.Participants {
 				reply = fmt.Sprintf("%s %s,", reply, participant.UserName)
 			}
@@ -135,7 +135,7 @@ func Details(s *discordgo.Session, m *discordgo.MessageCreate, command []string)
 
 	message = fmt.Sprintf("**EventID:** %s", event.EventId)
 	message = fmt.Sprintf("%s\r\n**Creator:** %s", message, event.Creator.Mention)
-	message = fmt.Sprintf("%s\r\n**Date:** %s", message, event.DateTime.In(timeZone).Format("2006-01-02"))
+	message = fmt.Sprintf("%s\r\n**Date:** %s", message, event.DateTime.In(timeZone).Format("Mon 02/01/2006"))
 	message = fmt.Sprintf("%s\r\n**Time:** %s for %d hours", message, event.DateTime.In(timeZone).Format("15:04"), event.Duration)
 	message = fmt.Sprintf("%s\r\n**Name:** %s", message, event.Name)
 	message = fmt.Sprintf("%s\r\n**Description:** %s", message, event.Description)
@@ -170,7 +170,7 @@ func NewEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []string
 
 	// Test for date and time arguments
 	datetime := fmt.Sprintf("%s %s", command[1], command[2])
-	dt, err := time.ParseInLocation("2006-01-02 15:04", datetime, timeZone)
+	dt, err := time.ParseInLocation("02/01/2006 15:04", datetime, timeZone)
 	if err != nil {
 		message = fmt.Sprintf("Whoah, not so sure about that date and time (%s). EventsBot is confused :thinking:", datetime)
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
@@ -570,14 +570,14 @@ func BotHelp(s *discordgo.Session, m *discordgo.MessageCreate, command []string)
 	case "newevent":
 		message = fmt.Sprintf("%s\r\nHere's how to create a new event:", message)
 		message = fmt.Sprintf("%s\r\n```%snewevent Date Time Name Description Size\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n       Date: In the format YYYY-MM-DD", message)
+		message = fmt.Sprintf("%s\r\n       Date: In the format DD/MM/YYYY", message)
 		message = fmt.Sprintf("%s\r\n       Time: In the format HH:MM (24 hour clock)", message)
 		message = fmt.Sprintf("%s\r\n   Duration: Number of hours the event will last", message)
 		message = fmt.Sprintf("%s\r\n       Name: A name for your event. Surround it in quotes if it's more than one word", message)
 		message = fmt.Sprintf("%s\r\nDescription: A longer description of your event. You totally want to surround this one in quotes", message)
 		message = fmt.Sprintf("%s\r\n   TeamSize: Just a number denoting how many players can sign up```", message)
 		message = fmt.Sprintf("%s\r\n\r\nHere's an example for you:", message)
-		message = fmt.Sprintf("%s\r\n```%snewevent %s 20:00 2 \"Normal Leviathan\" \"Fresh start of Leviathan raid\" 6```", message, config.CommandPrefix, time.Now().Format("2006-01-02"))
+		message = fmt.Sprintf("%s\r\n```%snewevent %s 20:00 2 \"Normal Leviathan\" \"Fresh start of Leviathan raid\" 6```", message, config.CommandPrefix, time.Now().Format("02/01/2006"))
 		message = fmt.Sprintf("%s\r\nThis will create a 2 hour event to start at 8pm tonight and which will allow 6 people to sign up", message)
 	case "cancelevent":
 		message = fmt.Sprintf("%s\r\nHere's how to cancel an event:", message)
@@ -652,7 +652,7 @@ func IsUser(arg string) bool {
 }
 
 func IsDate(arg string) bool {
-	_, err := time.Parse("2006-01-02", arg)
+	_, err := time.Parse("02/01/2006", arg)
 	return err == nil
 }
 
