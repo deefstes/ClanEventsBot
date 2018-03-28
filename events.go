@@ -6,9 +6,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// ClanEvent holds information pertaining to an event
 type ClanEvent struct {
-	ObjectId     bson.ObjectId `bson:"_id,omitempty" json:"-"`
-	EventId      string        `bson:"eventId" json:"eventId"`
+	ObjectID     bson.ObjectId `bson:"_id,omitempty" json:"-"`
+	EventID      string        `bson:"eventId" json:"eventId"`
 	Creator      ClanUser      `bson:"creator" json:"creator"`
 	DateTime     time.Time     `bson:"dateTime" json:"dateTime"`
 	Duration     int           `bson:"duration" json:"duration"`
@@ -20,15 +21,9 @@ type ClanEvent struct {
 	Reserves     []ClanUser    `bson:"reserves" json:"reserves"`
 }
 
+// ClanUser holds information pertaining to a Discord user
 type ClanUser struct {
 	UserName string    `bson:"userName" json:"userName"`
 	Mention  string    `bson:"mention" json:"mention"`
 	DateTime time.Time `bson:"dateTime" json:"dateTime"`
-}
-
-type Person struct {
-	ID        bson.ObjectId `bson:"_id,omitempty"`
-	Name      string
-	Phone     string
-	Timestamp time.Time
 }

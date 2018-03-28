@@ -120,14 +120,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if strings.HasPrefix(command, "test") {
 		Test(s, m, commandElements)
 	}
-
-	if strings.HasPrefix(command, "ping") {
-		PingPong(s, m, commandElements)
-	}
-
-	if strings.HasPrefix(command, "pong") {
-		PingPong(s, m, commandElements)
-	}
 }
 
 func getArgs(s string) []string {

@@ -9,12 +9,14 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+// Configuration contains system wide configuration values
 type Configuration struct {
 	Token         string `yaml:"Token"`
 	CommandPrefix string `yaml:"CommandPrefix"`
 	MongoDB       string `yaml:"MongoDB"`
 }
 
+// ReadConfig reads system configuration from a YAML config file and returns a Configuration struct
 func ReadConfig() (Configuration, error) {
 	var AppConfig Configuration
 	exeFullPath, err := os.Executable()

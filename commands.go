@@ -11,19 +11,11 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-func PingPong(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-	if command[0] == "ping" {
-		s.ChannelMessageSend(m.ChannelID, "pong")
-	}
-	if command[0] == "pong" {
-		s.ChannelMessageSend(m.ChannelID, "ping")
-	}
-}
-
-/// ~listevents
-/// ~listevents @username
-/// ~listevents date
-/// ~listevents date @username
+// ListEvents is used to list all upcoming events on a specified (optional) date, for a specified (optional) user
+// ~listevents
+// ~listevents @username
+// ~listevents date
+// ~listevents date @username
 func ListEvents(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
@@ -40,9 +32,9 @@ func ListEvents(s *discordgo.Session, m *discordgo.MessageCreate, command []stri
 
 	// Check first argument
 	if len(command) > 1 {
-		if IsUser(command[1]) {
+		if isUser(command[1]) {
 			listuser = m.Mentions[0].Username
-		} else if IsDate(command[1]) {
+		} else if isDate(command[1]) {
 			specdate, _ = time.ParseInLocation("02/01/2006", command[1], timeZone)
 		} else {
 			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
@@ -54,7 +46,7 @@ func ListEvents(s *discordgo.Session, m *discordgo.MessageCreate, command []stri
 
 	// Check second argument
 	if len(command) > 2 {
-		if IsUser(command[2]) {
+		if isUser(command[2]) {
 			listuser = m.Mentions[0].Username
 		} else {
 			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :anguished:")
@@ -99,7 +91,7 @@ func ListEvents(s *discordgo.Session, m *discordgo.MessageCreate, command []stri
 	} else {
 		reply = fmt.Sprintf("%s```", reply)
 		for _, event := range results {
-			reply = fmt.Sprintf("%s[%s] %s - %s -", reply, event.EventId, event.DateTime.In(timeZone).Format("Mon 02/01/2006 15:04"), event.Name)
+			reply = fmt.Sprintf("%s[%s] %s - %s -", reply, event.EventID, event.DateTime.In(timeZone).Format("Mon 02/01/2006 15:04"), event.Name)
 			for _, participant := range event.Participants {
 				reply = fmt.Sprintf("%s %s,", reply, participant.UserName)
 			}
@@ -111,7 +103,8 @@ func ListEvents(s *discordgo.Session, m *discordgo.MessageCreate, command []stri
 	s.ChannelMessageSend(m.ChannelID, reply)
 }
 
-/// ~details eventId
+// Details is used to display detailed information on a specified event
+// ~details EventID
 func Details(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
@@ -127,13 +120,13 @@ func Details(s *discordgo.Session, m *discordgo.MessageCreate, command []string)
 	c := mongoSession.DB("ClanEvents").C("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
+	err := c.Find(bson.M{"EventID": command[1]}).One(&event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
 		return
 	}
 
-	message = fmt.Sprintf("**EventID:** %s", event.EventId)
+	message = fmt.Sprintf("**EventID:** %s", event.EventID)
 	message = fmt.Sprintf("%s\r\n**Creator:** %s", message, event.Creator.Mention)
 	message = fmt.Sprintf("%s\r\n**Date:** %s", message, event.DateTime.In(timeZone).Format("Mon 02/01/2006"))
 	message = fmt.Sprintf("%s\r\n**Time:** %s for %d hours", message, event.DateTime.In(timeZone).Format("15:04"), event.Duration)
@@ -156,7 +149,8 @@ func Details(s *discordgo.Session, m *discordgo.MessageCreate, command []string)
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
-/// ~newevent Date Time Duration Name Description Size
+// NewEvent is used to create a new event
+// ~newevent Date Time Duration Name Description Size
 func NewEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
@@ -212,7 +206,7 @@ func NewEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []string
 		}
 	}
 	newEvent := ClanEvent{
-		EventId:     newid,
+		EventID:     newid,
 		Creator:     curUser,
 		DateTime:    dt,
 		Duration:    duration,
@@ -230,13 +224,14 @@ func NewEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []string
 	}
 
 	message = fmt.Sprintf("Woohoo! A new event has been created by %s. EventsBot is most pleased :ok_hand:", newEvent.Creator.Mention)
-	message = fmt.Sprintf("%s\r\nEvent ID: **%s**", message, newEvent.EventId)
+	message = fmt.Sprintf("%s\r\nEvent ID: **%s**", message, newEvent.EventID)
 	message = fmt.Sprintf("%s\r\n\r\nTo sign up for this event, type the following:", message)
-	message = fmt.Sprintf("%s\r\n```%ssignup %s```", message, config.CommandPrefix, newEvent.EventId)
+	message = fmt.Sprintf("%s\r\n```%ssignup %s```", message, config.CommandPrefix, newEvent.EventID)
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
-/// ~cancelevent eventId
+// CancelEvent is used to delete a specified event
+// ~cancelevent EventID
 func CancelEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
@@ -262,7 +257,7 @@ func CancelEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []str
 	c := mongoSession.DB("ClanEvents").C("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
+	err := c.Find(bson.M{"EventID": command[1]}).One(&event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
 		return
@@ -272,7 +267,7 @@ func CancelEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []str
 	allowed := false
 	if event.Creator.UserName == curUser.UserName {
 		allowed = true
-	} else if HasRole(s, m, "EventsBotAdmin") {
+	} else if hasRole(s, m, "EventsBotAdmin") {
 		allowed = true
 	}
 
@@ -284,7 +279,7 @@ func CancelEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []str
 	}
 
 	// Delete record
-	err = c.Remove(bson.M{"eventId": command[1]})
+	err = c.Remove(bson.M{"EventID": command[1]})
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -296,8 +291,9 @@ func CancelEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []str
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
-/// ~signup eventId
-/// ~signup eventId @Username
+// Signup is used to sign the author or a specified user up to an event
+// ~signup EventID
+// ~signup EventID @Username
 func Signup(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
@@ -323,7 +319,7 @@ func Signup(s *discordgo.Session, m *discordgo.MessageCreate, command []string) 
 
 	// Check first argument
 	if len(command) > 2 {
-		if IsUser(command[2]) {
+		if isUser(command[2]) {
 			signupUser = ClanUser{
 				UserName: m.Mentions[0].Username,
 				Mention:  m.Mentions[0].Mention(),
@@ -340,7 +336,7 @@ func Signup(s *discordgo.Session, m *discordgo.MessageCreate, command []string) 
 	c := mongoSession.DB("ClanEvents").C("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
+	err := c.Find(bson.M{"EventID": command[1]}).One(&event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
 		return
@@ -351,7 +347,7 @@ func Signup(s *discordgo.Session, m *discordgo.MessageCreate, command []string) 
 		allowed := false
 		if event.Creator.UserName == curUser.UserName {
 			allowed = true
-		} else if HasRole(s, m, "EventsBotAdmin") {
+		} else if hasRole(s, m, "EventsBotAdmin") {
 			allowed = true
 		}
 
@@ -384,7 +380,7 @@ func Signup(s *discordgo.Session, m *discordgo.MessageCreate, command []string) 
 			}
 		}
 		event.Reserves = append(event.Reserves, signupUser)
-		err = c.Update(bson.M{"eventId": command[1]}, event)
+		err = c.Update(bson.M{"EventID": command[1]}, event)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 			return
@@ -393,7 +389,7 @@ func Signup(s *discordgo.Session, m *discordgo.MessageCreate, command []string) 
 	} else {
 		event.Participants = append(event.Participants, signupUser)
 		event.Full = len(event.Participants) >= event.TeamSize
-		err = c.Update(bson.M{"eventId": command[1]}, event)
+		err = c.Update(bson.M{"EventID": command[1]}, event)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 			return
@@ -414,8 +410,9 @@ func Signup(s *discordgo.Session, m *discordgo.MessageCreate, command []string) 
 	}
 }
 
-/// ~leave eventId
-/// ~leave eventId @Username
+// Leave is used to remove the author or specified user from an event
+// ~leave EventID
+// ~leave EventID @Username
 func Leave(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
@@ -441,7 +438,7 @@ func Leave(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 
 	// Check first argument
 	if len(command) > 2 {
-		if IsUser(command[2]) {
+		if isUser(command[2]) {
 			removeUser = ClanUser{
 				UserName: m.Mentions[0].Username,
 				Mention:  m.Mentions[0].Mention(),
@@ -458,7 +455,7 @@ func Leave(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	c := mongoSession.DB("ClanEvents").C("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
+	err := c.Find(bson.M{"EventID": command[1]}).One(&event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
 		return
@@ -469,7 +466,7 @@ func Leave(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 		allowed := false
 		if event.Creator.UserName == curUser.UserName {
 			allowed = true
-		} else if HasRole(s, m, "EventsBotAdmin") {
+		} else if hasRole(s, m, "EventsBotAdmin") {
 			allowed = true
 		}
 
@@ -513,7 +510,7 @@ func Leave(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 		event.Participants = append(event.Participants, reserve)
 		event.Reserves = append(event.Reserves[:0], event.Reserves[0+1:]...)
 
-		err = c.Update(bson.M{"eventId": command[1]}, event)
+		err = c.Update(bson.M{"EventID": command[1]}, event)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 			return
@@ -527,7 +524,7 @@ func Leave(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 		}
 	}
 
-	err = c.Update(bson.M{"eventId": command[1]}, event)
+	err = c.Update(bson.M{"EventID": command[1]}, event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -535,6 +532,7 @@ func Leave(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
+// BotHelp is used to display a list of available commands or instructions on using a specified command
 func BotHelp(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	if len(command) == 1 {
 		command = append(command, "nothing")
@@ -551,8 +549,8 @@ func BotHelp(s *discordgo.Session, m *discordgo.MessageCreate, command []string)
 		message = fmt.Sprintf("%s\r\n    %scancelevent", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %ssignup", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %sleave", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %simpersonate", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %sunimpersonate", message, config.CommandPrefix)
+		//message = fmt.Sprintf("%s\r\n    %simpersonate", message, config.CommandPrefix)
+		//message = fmt.Sprintf("%s\r\n    %sunimpersonate", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s```", message)
 		message = fmt.Sprintf("%sYou can get help on any of these commands by typing %shelp followed by the name of the command", message, config.CommandPrefix)
 	case "listevents":
@@ -617,8 +615,9 @@ func BotHelp(s *discordgo.Session, m *discordgo.MessageCreate, command []string)
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
+// Impersonate is used to assume the identity of another Discord user and issue commands on that user's behalf
 func Impersonate(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-	if !HasRole(s, m, "EventsBotAdmin") {
+	if !hasRole(s, m, "EventsBotAdmin") {
 		message := fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to impersonate other users.\r\nEventsBot will not stand for this :point_up:")
 		message = fmt.Sprintf("%s\r\nFor help with impersonating users, type the following:\r\n```%shelp impersonate```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
@@ -634,29 +633,31 @@ func Impersonate(s *discordgo.Session, m *discordgo.MessageCreate, command []str
 	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is now impersonated\r\nEventsBot is regarding this with some sense of apprehension :bust_in_silhouette:", impersonated.UserName))
 }
 
+// Unimpersonate is used to return to the original user's identity after impersonating another user
 func Unimpersonate(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	impersonated = ClanUser{}
 	s.ChannelMessageSend(m.ChannelID, "No more of this impersonation business!")
 }
 
+// Test is used to simply check that the bot is online and responding
 func Test(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-	fmt.Sprintf("len(command) = %d", len(command))
+	fmt.Printf("len(command) = %d", len(command))
 	for _, arg := range command {
 		fmt.Printf("%s\r\n", arg)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s", arg))
 	}
 }
 
-func IsUser(arg string) bool {
+func isUser(arg string) bool {
 	return strings.HasPrefix(arg, "<@")
 }
 
-func IsDate(arg string) bool {
+func isDate(arg string) bool {
 	_, err := time.Parse("02/01/2006", arg)
 	return err == nil
 }
 
-func GetGuild(s *discordgo.Session, m *discordgo.MessageCreate) *discordgo.Guild {
+func getGuild(s *discordgo.Session, m *discordgo.MessageCreate) *discordgo.Guild {
 	// Attempt to get the channel from the state.
 	// If there is an error, fall back to the restapi
 	channel, err := s.State.Channel(m.ChannelID)
@@ -680,19 +681,19 @@ func GetGuild(s *discordgo.Session, m *discordgo.MessageCreate) *discordgo.Guild
 	return guild
 }
 
-func HasRole(s *discordgo.Session, m *discordgo.MessageCreate, role string) bool {
-	roleId := ""
-	guild := GetGuild(s, m)
+func hasRole(s *discordgo.Session, m *discordgo.MessageCreate, role string) bool {
+	roleID := ""
+	guild := getGuild(s, m)
 	for _, guildRole := range guild.Roles {
 		if guildRole.Name == role {
-			roleId = guildRole.ID
+			roleID = guildRole.ID
 		}
 	}
 	found := false
 	for _, member := range guild.Members {
 		if member.User.Username == m.Author.Username {
 			for _, memberrole := range member.Roles {
-				if memberrole == roleId {
+				if memberrole == roleID {
 					found = true
 				}
 			}
