@@ -554,7 +554,7 @@ func BotHelp(s *discordgo.Session, m *discordgo.MessageCreate, command []string)
 		message = fmt.Sprintf("%s\r\n    %simpersonate", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %sunimpersonate", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s```", message)
-		message = fmt.Sprintf("%sYou can get help on any of these commands by typing ~help followed by the name of the command", message)
+		message = fmt.Sprintf("%sYou can get help on any of these commands by typing %shelp followed by the name of the command", message, config.CommandPrefix)
 	case "listevents":
 		message = fmt.Sprintf("%s\r\nHere's how to get a list of upcoming events:", message)
 		message = fmt.Sprintf("%s\r\n```%slistevents Date @Username\r\n", message, config.CommandPrefix)
@@ -602,7 +602,7 @@ func BotHelp(s *discordgo.Session, m *discordgo.MessageCreate, command []string)
 		message = fmt.Sprintf("%s\r\nHere's how to impersonate a user:", message)
 		message = fmt.Sprintf("%s\r\n```%simpersonate @Username\r\n", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n  @Username: The Discord user you wish to impersonate", message)
-		message = fmt.Sprintf("%s\r\n\r\nNote: This will have the effect of any further commands you issue, until you've issued ~unimpersonate, behaving as if they originated from the specified user. This is dangerous of course and so only users with the EventsBotAdmin role assigned are allowed to issue this command. You have been warned.", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: This will have the effect of any further commands you issue, until you've issued %sunimpersonate, behaving as if they originated from the specified user. This is dangerous of course and so only users with the EventsBotAdmin role assigned are allowed to issue this command. You have been warned.", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s```", message)
 	case "unimpersonate":
 		message = fmt.Sprintf("%s\r\nHere's how to stop impersonating a user:", message)
@@ -640,7 +640,11 @@ func Unimpersonate(s *discordgo.Session, m *discordgo.MessageCreate, command []s
 }
 
 func Test(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-
+	fmt.Sprintf("len(command) = %d", len(command))
+	for _, arg := range command {
+		fmt.Printf("%s\r\n", arg)
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s", arg))
+	}
 }
 
 func IsUser(arg string) bool {
