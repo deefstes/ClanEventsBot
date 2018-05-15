@@ -1,4 +1,4 @@
-package main
+.find(package main
 
 import (
 	"fmt"
@@ -120,7 +120,7 @@ func Details(s *discordgo.Session, m *discordgo.MessageCreate, command []string)
 	c := mongoSession.DB("ClanEvents").C("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"EventID": command[1]}).One(&event)
+	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
 		return
@@ -182,6 +182,22 @@ func NewEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []string
 	duration, err := strconv.Atoi(command[3])
 	if err != nil {
 		message = fmt.Sprintf("What kind of a duration is %s? EventsBot needs a vacation of %s weeks :beach:", command[3], command[3])
+		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Test for name
+	if len(command[4]) > 50 {
+		message = fmt.Sprintf("That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:")
+		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Test for description
+	if len(command[5]) > 150 {
+		message = fmt.Sprintf("That's a very long description right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 150 characters please. :triumph:")
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -257,7 +273,7 @@ func CancelEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []str
 	c := mongoSession.DB("ClanEvents").C("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"EventID": command[1]}).One(&event)
+	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
 		return
@@ -279,7 +295,7 @@ func CancelEvent(s *discordgo.Session, m *discordgo.MessageCreate, command []str
 	}
 
 	// Delete record
-	err = c.Remove(bson.M{"EventID": command[1]})
+	err = c.Remove(bson.M{"eventId": command[1]})
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -336,7 +352,7 @@ func Signup(s *discordgo.Session, m *discordgo.MessageCreate, command []string) 
 	c := mongoSession.DB("ClanEvents").C("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"EventID": command[1]}).One(&event)
+	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
 		return
@@ -380,7 +396,7 @@ func Signup(s *discordgo.Session, m *discordgo.MessageCreate, command []string) 
 			}
 		}
 		event.Reserves = append(event.Reserves, signupUser)
-		err = c.Update(bson.M{"EventID": command[1]}, event)
+		err = c.Update(bson.M{"eventId": command[1]}, event)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 			return
@@ -389,7 +405,7 @@ func Signup(s *discordgo.Session, m *discordgo.MessageCreate, command []string) 
 	} else {
 		event.Participants = append(event.Participants, signupUser)
 		event.Full = len(event.Participants) >= event.TeamSize
-		err = c.Update(bson.M{"EventID": command[1]}, event)
+		err = c.Update(bson.M{"eventId": command[1]}, event)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 			return
@@ -455,7 +471,7 @@ func Leave(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	c := mongoSession.DB("ClanEvents").C("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"EventID": command[1]}).One(&event)
+	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
 		return
@@ -510,7 +526,7 @@ func Leave(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 		event.Participants = append(event.Participants, reserve)
 		event.Reserves = append(event.Reserves[:0], event.Reserves[0+1:]...)
 
-		err = c.Update(bson.M{"EventID": command[1]}, event)
+		err = c.Update(bson.M{"eventId": command[1]}, event)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 			return
@@ -524,7 +540,7 @@ func Leave(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 		}
 	}
 
-	err = c.Update(bson.M{"EventID": command[1]}, event)
+	err = c.Update(bson.M{"eventId": command[1]}, event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -641,7 +657,7 @@ func Unimpersonate(s *discordgo.Session, m *discordgo.MessageCreate, command []s
 
 // Test is used to simply check that the bot is online and responding
 func Test(s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-	fmt.Printf("len(command) = %d", len(command))
+	fmt.Printf("len(command) = %d\r\n", len(command))
 	for _, arg := range command {
 		fmt.Printf("%s\r\n", arg)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s", arg))

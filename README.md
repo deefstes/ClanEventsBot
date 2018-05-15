@@ -22,6 +22,7 @@ The bot uses a MongoDB database and expects a database named `ClanEvents` with a
 
 ## Commands
 ```
+help
 listevents
 details
 newevent
