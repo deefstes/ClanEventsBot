@@ -19,6 +19,7 @@ type ClanEvent struct {
 	Full         bool          `bson:"full" json:"full"`
 	Participants []ClanUser    `bson:"participants" json:"participants"`
 	Reserves     []ClanUser    `bson:"reserves" json:"reserves"`
+	Archived     bool          `bson:"archived" json:"archived"`
 }
 
 // ClanUser holds information pertaining to a Discord user

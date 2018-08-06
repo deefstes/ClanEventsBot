@@ -5,15 +5,17 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	yaml "gopkg.in/yaml.v2"
 )
 
 // Configuration contains system wide configuration values
 type Configuration struct {
-	Token         string `yaml:"Token"`
-	CommandPrefix string `yaml:"CommandPrefix"`
-	MongoDB       string `yaml:"MongoDB"`
+	Token         string        `yaml:"Token"`
+	CommandPrefix string        `yaml:"CommandPrefix"`
+	MongoDB       string        `yaml:"MongoDB"`
+	ServiceTimer  time.Duration `yaml:"ServiceTimer"`
 }
 
 // ReadConfig reads system configuration from a YAML config file and returns a Configuration struct
