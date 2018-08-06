@@ -58,7 +58,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 
 	filter := bson.M{}
 	filter["dateTime"] = bson.M{
-		"$gte": time.Now().Add(-1*time.Hour),
+		"$gte": time.Now().Add(-1 * time.Hour),
 	}
 	if listuser != "all" {
 		filter["participants.userName"] = listuser
@@ -92,7 +92,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 		reply = fmt.Sprintf("%s```", reply)
 		for _, event := range results {
 			freeSpace := event.TeamSize - len(event.Participants)
-			reply = fmt.Sprintf("%s %s: %s - %s", reply, event.EventID, event.DateTime.In(timeZone).Format("Mon 02/01 15:04"), event.Name)
+			reply = fmt.Sprintf("%s%8v: %s - %s", reply, event.EventID, event.DateTime.In(timeZone).Format("Mon 02/01 15:04"), event.Name)
 
 			// Add players to message
 			if len(event.Participants) > 0 {
