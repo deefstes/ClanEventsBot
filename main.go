@@ -67,58 +67,64 @@ func main() {
 
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+func messageCreate(session *discordgo.Session, message *discordgo.MessageCreate) {
 
 	// Ignore all messages created by the bot itself
-	if m.Author.ID == s.State.User.ID {
+	if message.Author.ID == session.State.User.ID {
 		return
 	}
 
 	// If messages is not a command, bail out
-	if !strings.HasPrefix(m.Content, config.CommandPrefix) {
+	if !strings.HasPrefix(message.Content, config.CommandPrefix) {
 		return
 	}
-	command := strings.TrimPrefix(m.Content, config.CommandPrefix)
+	command := strings.TrimPrefix(message.Content, config.CommandPrefix)
 	commandElements := getArgs(command)
 
+	// If message does not xontain guild information, bail out
+	guild := getGuild(session, message)
+	if guild == nil {
+		return
+	}
+
 	if strings.HasPrefix(command, "help") {
-		BotHelp(s, m, commandElements)
+		BotHelp(guild, session, message, commandElements)
 	}
 
 	if strings.HasPrefix(command, "listevents") {
-		ListEvents(s, m, commandElements)
+		ListEvents(guild, session, message, commandElements)
 	}
 
 	if strings.HasPrefix(command, "newevent") {
-		NewEvent(s, m, commandElements)
+		NewEvent(guild, session, message, commandElements)
 	}
 
 	if strings.HasPrefix(command, "cancelevent") {
-		CancelEvent(s, m, commandElements)
+		CancelEvent(guild, session, message, commandElements)
 	}
 
 	if strings.HasPrefix(command, "signup") {
-		Signup(s, m, commandElements)
+		Signup(guild, session, message, commandElements)
 	}
 
 	if strings.HasPrefix(command, "leave") {
-		Leave(s, m, commandElements)
+		Leave(guild, session, message, commandElements)
 	}
 
 	if strings.HasPrefix(command, "impersonate") {
-		Impersonate(s, m, commandElements)
+		Impersonate(guild, session, message, commandElements)
 	}
 
 	if strings.HasPrefix(command, "unimpersonate") {
-		Unimpersonate(s, m, commandElements)
+		Unimpersonate(guild, session, message, commandElements)
 	}
 
 	if strings.HasPrefix(command, "details") {
-		Details(s, m, commandElements)
+		Details(guild, session, message, commandElements)
 	}
 
 	if strings.HasPrefix(command, "test") {
-		Test(s, m, commandElements)
+		Test(guild, session, message, commandElements)
 	}
 }
 
