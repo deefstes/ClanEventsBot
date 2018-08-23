@@ -376,6 +376,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 							UserName: mentionedUser.Username,
 							UserID:   mentionedUser.ID,
 							Nickname: getNickname(g, s, mentionedUser.ID),
+							DateTime: time.Now(),
 						}
 						signupUsers = append(signupUsers, signupUser)
 					}
@@ -520,6 +521,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 				UserName: m.Mentions[0].Username,
 				UserID:   m.Mentions[0].ID,
 				Nickname: getNickname(g, s, m.Mentions[0].ID),
+				DateTime: time.Now(),
 			}
 		} else {
 			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
@@ -756,6 +758,7 @@ func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		UserName: m.Mentions[0].Username,
 		UserID:   m.Mentions[0].ID,
 		Nickname: getNickname(g, s, m.Mentions[0].ID),
+		DateTime: time.Now(),
 	}
 
 	impersonated = user
