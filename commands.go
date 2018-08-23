@@ -99,7 +99,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 				reply = fmt.Sprintf("%s\r\n Players:", reply)
 
 				for _, participant := range event.Participants {
-					reply = fmt.Sprintf("%s %s,", reply, participant.UserName)
+					reply = fmt.Sprintf("%s %s,", reply, participant.DisplayName())
 				}
 				// Remove trailing comma
 				reply = fmt.Sprintf("%s", strings.TrimSuffix(reply, ","))
@@ -110,7 +110,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 				reply = fmt.Sprintf("%s\r\nReserves:", reply)
 
 				for _, reserve := range event.Reserves {
-					reply = fmt.Sprintf("%s %s,", reply, reserve.UserName)
+					reply = fmt.Sprintf("%s %s,", reply, reserve.DisplayName())
 				}
 				// Remove trailing comma
 				reply = fmt.Sprintf("%s", strings.TrimSuffix(reply, ","))
@@ -159,7 +159,7 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	}
 
 	message = fmt.Sprintf("**EventID:** %s", event.EventID)
-	message = fmt.Sprintf("%s\r\n**Creator:** %s", message, event.Creator.Mention)
+	message = fmt.Sprintf("%s\r\n**Creator:** %s", message, event.Creator.Mention())
 	message = fmt.Sprintf("%s\r\n**Date:** %s", message, event.DateTime.In(timeZone).Format("Mon 02/01/2006"))
 	message = fmt.Sprintf("%s\r\n**Time:** %s for %d hours", message, event.DateTime.In(timeZone).Format("15:04"), event.Duration)
 	message = fmt.Sprintf("%s\r\n**Name:** %s", message, event.Name)
@@ -168,13 +168,13 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	if len(event.Participants) > 0 {
 		message = fmt.Sprintf("%s\r\n**Participants:**", message)
 		for _, participant := range event.Participants {
-			message = fmt.Sprintf("%s\r\n   -  %s", message, participant.Mention)
+			message = fmt.Sprintf("%s\r\n   -  %s", message, participant.Mention())
 		}
 	}
 	if len(event.Reserves) > 0 {
 		message = fmt.Sprintf("%s\r\n**Reserves:**", message)
 		for _, reserve := range event.Reserves {
-			message = fmt.Sprintf("%s\r\n    - %s", message, reserve.Mention)
+			message = fmt.Sprintf("%s\r\n    - %s", message, reserve.Mention())
 		}
 	}
 
@@ -250,7 +250,8 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 	if curUser.UserName == "" {
 		curUser = ClanUser{
 			UserName: m.Author.Username,
-			Mention:  m.Author.Mention(),
+			UserID:   m.Author.ID,
+			Nickname: getNickname(g, s, m.Author.ID),
 			DateTime: time.Now(),
 		}
 	}
@@ -272,7 +273,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		return
 	}
 
-	message = fmt.Sprintf("Woohoo! A new event has been created by %s. EventsBot is most pleased :ok_hand:", newEvent.Creator.Mention)
+	message = fmt.Sprintf("Woohoo! A new event has been created by %s. EventsBot is most pleased :ok_hand:", newEvent.Creator.Mention())
 	message = fmt.Sprintf("%s\r\nEvent ID: **%s**", message, newEvent.EventID)
 	message = fmt.Sprintf("%s\r\n\r\nTo sign up for this event, type the following:", message)
 	message = fmt.Sprintf("%s\r\n```%ssignup %s```", message, config.CommandPrefix, newEvent.EventID)
@@ -300,7 +301,8 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	if curUser.UserName == "" {
 		curUser = ClanUser{
 			UserName: m.Author.Username,
-			Mention:  m.Author.Mention(),
+			UserID:   m.Author.ID,
+			Nickname: getNickname(g, s, m.Author.ID),
 			DateTime: time.Now(),
 		}
 	}
@@ -337,7 +339,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		return
 	}
 
-	message = fmt.Sprintf("Tragedy! %s's event, %s, has been cancelled.", event.Creator.Mention, event.Name)
+	message = fmt.Sprintf("Tragedy! %s's event, %s, has been cancelled.", event.Creator.Mention(), event.Name)
 	message = fmt.Sprintf("%s\r\n\r\n\"We don't have commit. Repeat. We are decommissioning the committal of the launch. It is now a negatory launch phase. We are in a no fly, no go phase. That is a November Gorgon phase, of non-flying. And we're gonna say 'goodnight, thank you, good work, over and out'\".", message)
 	message = fmt.Sprintf("%s\r\n\r\nEventsBot will cry himself to sleep tonight :sob:", message)
 	s.ChannelMessageSend(m.ChannelID, message)
@@ -354,7 +356,8 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 	if curUser.UserName == "" {
 		curUser = ClanUser{
 			UserName: m.Author.Username,
-			Mention:  m.Author.Mention(),
+			UserID:   m.Author.ID,
+			Nickname: getNickname(g, s, m.Author.ID),
 			DateTime: time.Now(),
 		}
 	}
@@ -368,10 +371,11 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 			if isUser(command[i]) {
 				// Find user in list of mentions
 				for _, mentionedUser := range m.Mentions {
-					if command[i] == mentionedUser.Mention() {
+					if strings.Replace(command[i], "!", "", 1) == mentionedUser.Mention() {
 						signupUser := ClanUser{
 							UserName: mentionedUser.Username,
-							Mention:  mentionedUser.Mention(),
+							UserID:   mentionedUser.ID,
+							Nickname: getNickname(g, s, mentionedUser.ID),
 						}
 						signupUsers = append(signupUsers, signupUser)
 					}
@@ -422,7 +426,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 				if signupUser.UserName == curUser.UserName {
 					s.ChannelMessageSend(m.ChannelID, "You are already signed up to this event.\r\nEventsBot hasn't got time for your shenanigans :rolling_eyes:")
 				} else {
-					s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is already signed up to this event.\r\nEventsBot hasn't got time for your shenanigans :rolling_eyes:", signupUser.UserName))
+					s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is already signed up to this event.\r\nEventsBot hasn't got time for your shenanigans :rolling_eyes:", signupUser.DisplayName()))
 				}
 				return
 			}
@@ -432,14 +436,14 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 				if signupUser.UserName == curUser.UserName {
 					s.ChannelMessageSend(m.ChannelID, "You are already a reserve for this event.\r\nCan you just relax please? EventsBot will let you know if a space opens up. Don't call us, we'll call you. :rolling_eyes:")
 				} else {
-					s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is already a reserve for this event.\r\nCan you just relax please? EventsBot will let you know if a space opens up. Don't call us, we'll call you. :rolling_eyes:", signupUser.UserName))
+					s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is already a reserve for this event.\r\nCan you just relax please? EventsBot will let you know if a space opens up. Don't call us, we'll call you. :rolling_eyes:", signupUser.DisplayName()))
 				}
 				return
 			}
 		}
 		for i2 := 20; i2 < i1; i2++ {
 			if signupUsers[i1].UserName == signupUsers[i2].UserName {
-				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("How many times do you want to sign %s up for this event.\r\nNo one is _that_ important. :confused:", signupUser.UserName))
+				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("How many times do you want to sign %s up for this event.\r\nNo one is _that_ important. :confused:", signupUser.DisplayName()))
 				return
 			}
 		}
@@ -456,11 +460,11 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 				}
 			}
 			event.Reserves = append(event.Reserves, signupUser)
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is now signed up as a reserve for %s's event, %s.\r\nEventsBot approves :thumbsup:", signupUser.Mention, event.Creator.Mention, event.Name))
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is now signed up as a reserve for %s's event, %s.\r\nEventsBot approves :thumbsup:", signupUser.Mention(), event.Creator.Mention(), event.Name))
 		} else {
 			event.Participants = append(event.Participants, signupUser)
 			event.Full = len(event.Participants) >= event.TeamSize
-			message := fmt.Sprintf("%s is now signed up for %s's event, %s.\r\n", signupUser.Mention, event.Creator.Mention, event.Name)
+			message := fmt.Sprintf("%s is now signed up for %s's event, %s.\r\n", signupUser.Mention(), event.Creator.Mention(), event.Name)
 			if event.Full {
 				message = fmt.Sprintf("%sThis event is now full. It's all systems go!\r\n", message)
 				message = fmt.Sprintf("%sEventsBot definitely approves :thumbsup::thumbsup:", message)
@@ -501,7 +505,8 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	if curUser.UserName == "" {
 		curUser = ClanUser{
 			UserName: m.Author.Username,
-			Mention:  m.Author.Mention(),
+			UserID:   m.Author.ID,
+			Nickname: getNickname(g, s, m.Author.ID),
 			DateTime: time.Now(),
 		}
 	}
@@ -513,7 +518,8 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 		if isUser(command[2]) {
 			removeUser = ClanUser{
 				UserName: m.Mentions[0].Username,
-				Mention:  m.Mentions[0].Mention(),
+				UserID:   m.Mentions[0].ID,
+				Nickname: getNickname(g, s, m.Mentions[0].ID),
 			}
 		} else {
 			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
@@ -561,14 +567,15 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	if participantIndex != -1 {
 		// Remove participant from event
 		event.Participants = append(event.Participants[:participantIndex], event.Participants[participantIndex+1:]...)
-		message = fmt.Sprintf("Well okay then, %s has been removed from %s's event, %s\r\nEventsBot is sad to see you go :disappointed_relieved:", removeUser.Mention, event.Creator.Mention, event.Name)
+		message = fmt.Sprintf("Well okay then, %s has been removed from %s's event, %s\r\nEventsBot is sad to see you go :disappointed_relieved:", removeUser.Mention(), event.Creator.Mention(), event.Name)
 
 		// Move first reserve into participants
 		if len(event.Reserves) > 0 {
-			message = fmt.Sprintf("%s\r\nBut hey! %s is on reserve so we're golden.\r\nEventsBot is relieved :relieved:", message, event.Reserves[0].Mention)
+			message = fmt.Sprintf("%s\r\nBut hey! %s is on reserve so we're golden.\r\nEventsBot is relieved :relieved:", message, event.Reserves[0].Mention())
 			reserve := ClanUser{
 				UserName: event.Reserves[0].UserName,
-				Mention:  event.Reserves[0].Mention,
+				UserID:   event.Reserves[0].UserID,
+				Nickname: event.Reserves[0].Nickname,
 				DateTime: event.Reserves[0].DateTime,
 			}
 			event.Participants = append(event.Participants, reserve)
@@ -599,14 +606,14 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	if reserveIndex != -1 {
 		// Remove reserve from event
 		event.Reserves = append(event.Reserves[:reserveIndex], event.Reserves[reserveIndex+1:]...)
-		message = fmt.Sprintf("Well okay then, %s has been removed as a reserve from %s's event, %s\r\nEventsBot is sad to see you go :disappointed_relieved:", removeUser.Mention, event.Creator.Mention, event.Name)
+		message = fmt.Sprintf("Well okay then, %s has been removed as a reserve from %s's event, %s\r\nEventsBot is sad to see you go :disappointed_relieved:", removeUser.Mention(), event.Creator.Mention(), event.Name)
 	}
 
 	if participantIndex == -1 && reserveIndex == -1 {
 		if curUser.UserName == removeUser.UserName {
 			s.ChannelMessageSend(m.ChannelID, "You are not signed up to this event.\r\nEventsBot does not find your jokes particularly funny :rolling_eyes:")
 		} else {
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is not signed up to this event.\r\nEventsBot does not find your jokes particularly funny :rolling_eyes:", removeUser.UserName))
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is not signed up to this event.\r\nEventsBot does not find your jokes particularly funny :rolling_eyes:", removeUser.DisplayName()))
 		}
 		return
 	}
@@ -747,11 +754,12 @@ func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	user := ClanUser{
 		UserName: m.Mentions[0].Username,
-		Mention:  command[1],
+		UserID:   m.Mentions[0].ID,
+		Nickname: getNickname(g, s, m.Mentions[0].ID),
 	}
 
 	impersonated = user
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is now impersonated\r\nEventsBot is regarding this with some sense of apprehension :bust_in_silhouette:", impersonated.UserName))
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is now impersonated\r\nEventsBot is regarding this with some sense of apprehension :bust_in_silhouette:", impersonated.DisplayName()))
 }
 
 // Unimpersonate is used to return to the original user's identity after impersonating another user
@@ -802,7 +810,8 @@ func AddNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 	if isUser(command[1]) {
 		addUser = ClanUser{
 			UserName: m.Mentions[0].Username,
-			Mention:  m.Mentions[0].Mention(),
+			UserID:   m.Mentions[0].ID,
+			Nickname: getNickname(g, s, m.Mentions[0].ID),
 			DateTime: time.Now(),
 		}
 	} else {
@@ -824,11 +833,11 @@ func AddNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 	filter := bson.M{"userName": addUser.UserName}
 	_, err := c.Upsert(filter, addUser)
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to add %s to the naughty list. Sorry but EventsBot has no answers for you :cry:", addUser.UserName))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to add %s to the naughty list. Sorry but EventsBot has no answers for you :cry:", addUser.DisplayName()))
 		return
 	}
 
-	message = fmt.Sprintf("%s has been added to the naughty list :angry:", addUser.UserName)
+	message = fmt.Sprintf("%s has been added to the naughty list :angry:", addUser.DisplayName())
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
@@ -849,7 +858,8 @@ func RemoveNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 	if isUser(command[1]) {
 		removeUser = ClanUser{
 			UserName: m.Mentions[0].Username,
-			Mention:  m.Mentions[0].Mention(),
+			UserID:   m.Mentions[0].ID,
+			Nickname: getNickname(g, s, m.Mentions[0].ID),
 			DateTime: time.Now(),
 		}
 	} else {
@@ -871,14 +881,14 @@ func RemoveNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 	filter := bson.M{"userName": removeUser.UserName}
 	info, err := c.RemoveAll(filter)
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the naughty list. Sorry but EventsBot has no answers for you :cry:", removeUser.UserName))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the naughty list. Sorry but EventsBot has no answers for you :cry:", removeUser.DisplayName()))
 		return
 	}
 
 	if info.Removed > 0 {
-		message = fmt.Sprintf("%s has been removed from the naughty list. Are we cool now? :kissing_heart:", removeUser.UserName)
+		message = fmt.Sprintf("%s has been removed from the naughty list. Are we cool now? :kissing_heart:", removeUser.DisplayName())
 	} else {
-		message = fmt.Sprintf("What are you talking about? %s is not on the naughty list. :shrug:", removeUser.UserName)
+		message = fmt.Sprintf("What are you talking about? %s is not on the naughty list. :shrug:", removeUser.DisplayName())
 	}
 	s.ChannelMessageSend(m.ChannelID, message)
 }
@@ -995,4 +1005,12 @@ func hasRole(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	}
 
 	return found
+}
+
+func getNickname(g *discordgo.Guild, s *discordgo.Session, userID string) string {
+	guildMember, err := s.GuildMember(g.ID, userID)
+	if err != nil {
+		return ""
+	}
+	return guildMember.Nick
 }

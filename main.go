@@ -251,7 +251,7 @@ func deliverInsult(guildID string) {
 			fmt.Printf("Error delivering insult on guild %s\r\n", guildID)
 			return
 		}
-		message := getInsult(insultee.Mention)
+		message := getInsult(insultee.Mention())
 		sendMessage(config.DefaultChannel, message)
 	}
 }

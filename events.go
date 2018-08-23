@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"gopkg.in/mgo.v2/bson"
@@ -24,7 +25,25 @@ type ClanEvent struct {
 
 // ClanUser holds information pertaining to a Discord user
 type ClanUser struct {
-	UserName string    `bson:"userName" json:"userName"`
-	Mention  string    `bson:"mention" json:"mention"`
-	DateTime time.Time `bson:"dateTime" json:"dateTime"`
+	UserName           string    `bson:"userName" json:"userName"`
+	Nickname           string    `bson:"nickname,omitempty" json:"nickname,omitempty"`
+	Mention_deprecated string    `bson:"mention,omitempty" json:"mention,omitempty"`
+	UserID             string    `bson:"userId" json:"userId"`
+	DateTime           time.Time `bson:"dateTime" json:"dateTime"`
+}
+
+func (c ClanUser) DisplayName() string {
+	if c.Nickname != "" {
+		return c.Nickname
+	}
+
+	return c.UserName
+}
+
+func (c ClanUser) Mention() string {
+	if c.Mention_deprecated != "" {
+		return c.Mention_deprecated
+	}
+	
+	return fmt.Sprintf("<@%s>", c.UserID)
 }
