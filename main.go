@@ -18,6 +18,7 @@ import (
 )
 
 var (
+	buildNumber    string
 	config         Configuration
 	mongoSession   *mgo.Session
 	impersonated   ClanUser
@@ -31,6 +32,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%s - FATAL ERROR: %+v\r\n", time.Now().Format("2006-01-02 15:04:05"), r)
 		}
 	}()
+
+	if buildNumber == "" {
+		buildNumber = "N/A"
+	}
 
 	var err error
 
@@ -79,7 +84,12 @@ func main() {
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println("ClanEventsBot is now running")
+	fmt.Printf("ClanEventsBot (build number %s) is now running", buildNumber)
+	if config.DebugLevel > 0 {
+		fmt.Printf(" with DebugLevel=%d\r\n", config.DebugLevel)
+	} else {
+		fmt.Println()
+	}
 	fmt.Println("Press CTRL-C to exit")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
@@ -106,6 +116,10 @@ func messageCreate(session *discordgo.Session, message *discordgo.MessageCreate)
 	guild := getGuild(session, message)
 	if guild == nil {
 		return
+	}
+
+	if config.DebugLevel > 0 {
+		fmt.Printf("Guild=%s, Author=%s(%s), Command=%s\r\n", guild.Name, message.Author.Username, message.Author.ID, command)
 	}
 
 	if strings.HasPrefix(command, "help") {

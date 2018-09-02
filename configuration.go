@@ -16,6 +16,7 @@ type Configuration struct {
 	CommandPrefix string        `yaml:"CommandPrefix"`
 	MongoDB       string        `yaml:"MongoDB"`
 	ServiceTimer  time.Duration `yaml:"ServiceTimer"`
+	DebugLevel    int           `yaml:"DebugLevel"`
 }
 
 // ReadConfig reads system configuration from a YAML config file and returns a Configuration struct
