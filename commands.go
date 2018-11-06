@@ -35,7 +35,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 		if isUser(command[1]) {
 			listuser = m.Mentions[0].Username
 		} else if isDate(command[1]) {
-			specdate, _ = time.ParseInLocation("02/01/2006", command[1], timeZone)
+			specdate, _ = time.ParseInLocation("02/01/2006", command[1], defaultLocation)
 		} else {
 			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
 			message = fmt.Sprintf("%s\r\nFor help with listing events, type the following:\r\n```%shelp listevents```", message, config.CommandPrefix)
@@ -79,6 +79,19 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 		return
 	}
 
+	// Get all time zones
+	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	var tzs []TimeZone
+	tzLookup := make(map[string]TimeZone)
+	err = ctz.Find(bson.M{}).Sort("abbrev").All(&tzs)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+	for _, tz := range tzs {
+		tzLookup[tz.Abbrev] = tz
+	}
+
 	var reply string
 	if specdate.IsZero() {
 		reply = fmt.Sprintf("%s - Upcoming events", g.Name)
@@ -91,8 +104,15 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 	} else {
 		reply = fmt.Sprintf("%s```", reply)
 		for _, event := range results {
+			tzInfo := ""
+			eventLocation := defaultLocation
+			if event.TimeZone != "" {
+				tzInfo = fmt.Sprintf(" (%s)", event.TimeZone)
+				eventLocation, _ = time.LoadLocation(tzLookup[event.TimeZone].Location)
+			}
 			freeSpace := event.TeamSize - len(event.Participants)
-			reply = fmt.Sprintf("%s%8v: %s - %s", reply, event.EventID, event.DateTime.In(timeZone).Format("Mon 02/01 15:04"), event.Name)
+			//reply = fmt.Sprintf("%s%8v: %s%s - %s", reply, event.EventID, event.DateTime.In(defaultLocation).Format("Mon 02/01 15:04"), tzInfo, event.Name)
+			reply = fmt.Sprintf("%s%8v: %s%s - %s", reply, event.EventID, event.DateTime.In(eventLocation).Format("Mon 02/01 15:04"), tzInfo, event.Name)
 
 			// Add players to message
 			if len(event.Participants) > 0 {
@@ -158,10 +178,28 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		return
 	}
 
+	// Get time zone
+	tzInfo := ""
+	eventLocation := defaultLocation
+	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	if event.TimeZone != "" {
+		var tz TimeZone
+		err = ctz.Find(bson.M{"abbrev": event.TimeZone}).One(&tz)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:"))
+			return
+		}
+		tzInfo = tz.Abbrev
+		eventLocation, _ = time.LoadLocation(tz.Location)
+	}
+
 	message = fmt.Sprintf("**EventID:** %s", event.EventID)
 	message = fmt.Sprintf("%s\r\n**Creator:** %s", message, event.Creator.Mention())
-	message = fmt.Sprintf("%s\r\n**Date:** %s", message, event.DateTime.In(timeZone).Format("Mon 02/01/2006"))
-	message = fmt.Sprintf("%s\r\n**Time:** %s for %d hours", message, event.DateTime.In(timeZone).Format("15:04"), event.Duration)
+	message = fmt.Sprintf("%s\r\n**Date:** %s", message, event.DateTime.In(eventLocation).Format("Mon 02/01/2006"))
+	message = fmt.Sprintf("%s\r\n**Time:** %s for %d hours", message, event.DateTime.In(eventLocation).Format("15:04"), event.Duration)
+	if event.TimeZone != "" {
+		message = fmt.Sprintf("%s\r\n**Time Zone:** %s", message, tzInfo)
+	}
 	message = fmt.Sprintf("%s\r\n**Name:** %s", message, event.Name)
 	message = fmt.Sprintf("%s\r\n**Description:** %s", message, event.Description)
 	message = fmt.Sprintf("%s\r\n**Team Size:** %d of %d", message, len(event.Participants), event.TeamSize)
@@ -182,21 +220,59 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 }
 
 // NewEvent is used to create a new event
-// ~newevent Date Time Duration Name Description Size
+// ~newevent Date Time (TimeZone) Duration Name Description Size
 func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
 	// Test for correct number of arguments
-	if len(command) != 7 {
+	if len(command) < 7 || len(command) > 8 {
 		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
+	tzOffset := len(command) - 7 // offset value to use later for all parameters that come after the timezone (if present)
+	locAbbr := ""
+	var usrLocation *time.Location
+	// Test for time zone specification
+	if tzOffset > 0 {
+		if !strings.HasPrefix(command[2+tzOffset], "(") || !strings.HasSuffix(command[2+tzOffset], ")") {
+			message = fmt.Sprintf("Is %s supposed to be a time zone? Please put time zones in brackets :point_up:", command[2+tzOffset])
+			message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
+			s.ChannelMessageSend(m.ChannelID, message)
+			return
+		}
+
+		locAbbr = command[2+tzOffset]
+		locAbbr = strings.TrimPrefix(locAbbr, "(")
+		locAbbr = strings.TrimSuffix(locAbbr, ")")
+
+		// Check if timezone is known
+		ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+		var tz TimeZone
+		err := ctz.Find(bson.M{"abbrev": locAbbr}).One(&tz)
+		if err != nil || tz.Location == "" {
+			message = fmt.Sprintf("EventsBot doesn't know that %s time zone. Can we stick to time zones on earth please?", command[2+tzOffset])
+			message = fmt.Sprintf("%s\r\nTo see a list of available time zones, type the following:\r\n```%listtimezones```", message, config.CommandPrefix)
+			s.ChannelMessageSend(m.ChannelID, message)
+			return
+		}
+
+		usrLocation, err = time.LoadLocation(tz.Location)
+		if err != nil {
+			message = fmt.Sprintf("EventsBot is having trouble working with this time zone. Are we anywhere near a worm hole perhaps? :no_mouth:")
+			message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
+			s.ChannelMessageSend(m.ChannelID, message)
+			return
+		}
+	} else {
+		usrLocation, locAbbr = getLocation(g, s, m)
+	}
+
 	// Test for date and time arguments
 	datetime := fmt.Sprintf("%s %s", command[1], command[2])
-	dt, err := time.ParseInLocation("02/01/2006 15:04", datetime, timeZone)
+	dt, err := time.ParseInLocation("02/01/2006 15:04", datetime, usrLocation)
 	if err != nil {
 		message = fmt.Sprintf("Whoah, not so sure about that date and time (%s). EventsBot is confused :thinking:", datetime)
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
@@ -211,16 +287,16 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 	}
 
 	// Test for duration
-	duration, err := strconv.Atoi(command[3])
+	duration, err := strconv.Atoi(command[3+tzOffset])
 	if err != nil {
-		message = fmt.Sprintf("What kind of a duration is %s? EventsBot needs a vacation of %s weeks :beach:", command[3], command[3])
+		message = fmt.Sprintf("What kind of a duration is %s? EventsBot needs a vacation of %s weeks :beach:", command[3+tzOffset], command[3+tzOffset])
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
 	// Test for name
-	if len(command[4]) > 50 {
+	if len(command[4+tzOffset]) > 50 {
 		message = fmt.Sprintf("That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:")
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
@@ -228,7 +304,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 	}
 
 	// Test for description
-	if len(command[5]) > 150 {
+	if len(command[5+tzOffset]) > 150 {
 		message = fmt.Sprintf("That's a very long description right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 150 characters please. :triumph:")
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
@@ -236,9 +312,9 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 	}
 
 	// Test for size
-	teamSize, err := strconv.Atoi(command[6])
+	teamSize, err := strconv.Atoi(command[6+tzOffset])
 	if err != nil {
-		message = fmt.Sprintf("How many players you say? %s? EventsBot wouldn't do that if he were you :speak_no_evil:", command[6])
+		message = fmt.Sprintf("How many players you say? %s? EventsBot wouldn't do that if he were you :speak_no_evil:", command[6+tzOffset])
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -259,9 +335,10 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		EventID:     newid,
 		Creator:     curUser,
 		DateTime:    dt,
+		TimeZone:    locAbbr,
 		Duration:    duration,
-		Name:        command[4],
-		Description: command[5],
+		Name:        command[4+tzOffset],
+		Description: command[5+tzOffset],
 		TeamSize:    teamSize,
 		Full:        false,
 	}
@@ -363,7 +440,13 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 	}
 
 	signupUsers := []ClanUser{}
-	//signupUser := curUser
+	
+	if len(command) < 2 {
+		message = fmt.Sprintf("Come on! Surely you're not expecting me to guess which event you're trying to sign up to :confused:")
+		message = fmt.Sprintf("%s\r\nFor help with signing up to events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
 
 	// Check first argument
 	if len(command) > 2 {
@@ -638,7 +721,7 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 
 	switch command[1] {
 	case "nothing":
-		message = "List of EventsBot commands:```"
+		message = "```List of EventsBot commands:"
 		message = fmt.Sprintf("%s\r\n    %slistevents", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %sdetails", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %snewevent", message, config.CommandPrefix)
@@ -646,6 +729,12 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s\r\n    %ssignup", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %sleave", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %swisdom", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %slisttimezones", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n\r\nCommands that require Admin priviledges", message)
+		message = fmt.Sprintf("%s\r\n    %saddserver", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %saddtimezone", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %sremovetimezone", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %sroletimezone", message, config.CommandPrefix)
 		//message = fmt.Sprintf("%s\r\n    %simpersonate", message, config.CommandPrefix)
 		//message = fmt.Sprintf("%s\r\n    %sunimpersonate", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s```", message)
@@ -664,13 +753,16 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s```", message)
 	case "newevent":
 		message = fmt.Sprintf("%s\r\nHere's how to create a new event:", message)
-		message = fmt.Sprintf("%s\r\n```%snewevent Date Time Duration Name Description Size\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n```%snewevent Date Time (TimeZone) Duration Name Description Size\r\n", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n       Date: In the format DD/MM/YYYY", message)
 		message = fmt.Sprintf("%s\r\n       Time: In the format HH:MM (24 hour clock)", message)
+		message = fmt.Sprintf("%s\r\n   TimeZone: A time zone abbreviation between brackets", message)
 		message = fmt.Sprintf("%s\r\n   Duration: Number of hours the event will last", message)
 		message = fmt.Sprintf("%s\r\n       Name: A name for your event. Surround it in quotes if it's more than one word", message)
 		message = fmt.Sprintf("%s\r\nDescription: A longer description of your event. You totally want to surround this one in quotes", message)
-		message = fmt.Sprintf("%s\r\n   TeamSize: Just a number denoting how many players can sign up```", message)
+		message = fmt.Sprintf("%s\r\n   TeamSize: Just a number denoting how many players can sign up", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: Specifying a time zone is optional, as can be seen in the example below. If no time zone is specified, the role default time zone will be used.", message)
+		message = fmt.Sprintf("%s```", message)
 		message = fmt.Sprintf("%s\r\n\r\nHere's an example for you:", message)
 		message = fmt.Sprintf("%s\r\n```%snewevent %s 20:00 2 \"Normal Leviathan\" \"Fresh start of Leviathan raid\" 6```", message, config.CommandPrefix, time.Now().Format("02/01/2006"))
 		message = fmt.Sprintf("%s\r\nThis will create a 2 hour event to start at 8pm tonight and which will allow 6 people to sign up", message)
@@ -718,6 +810,27 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s\r\nHere's how to add a server to EventsBot:", message)
 		message = fmt.Sprintf("%s\r\n```%saddserver\r\n", message, config.CommandPrefix)
 		message = fmt.Sprintf("%sYes, it's that simple", message)
+		message = fmt.Sprintf("%s```", message)
+	case "addtimezone":
+		message = fmt.Sprintf("%s\r\nHere's how to add a time zone to EventsBot:", message)
+		message = fmt.Sprintf("%s\r\n```%saddtimezone Abbrev Location\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation to be used for this time zone (ie. ET, CT, etc.)", message)
+		message = fmt.Sprintf("%s\r\n   Location: A location that represents the time zone (conforms to the tz database naming convention)", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: For more information on the tz database naming convention, see https://en.wikipedia.org/wiki/Tz_database", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: EventsBot automatically adjusts times based on the specified location's Daylight Saving convention.", message)
+		message = fmt.Sprintf("%s```", message)
+	case "removetimezone":
+		message = fmt.Sprintf("%s\r\nHere's how to remove a time zone from EventsBot:", message)
+		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation for the time zone to be removed", message)
+		message = fmt.Sprintf("%s```", message)
+	case "listtimezones":
+		message = fmt.Sprintf("%s\r\nHere's how to obtain a list of time zones:", message)
+		message = fmt.Sprintf("%s\r\n```%slisttimezones\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%sYes, it's that simple. Just ask and you shall receive.", message)
+		message = fmt.Sprintf("%s```", message)
+	case "roletimezone":
+		message = fmt.Sprintf("%s\r\nHere's how to associate a time zone to a server role:", message)
+		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation provided when '%saddtimezone' command was issued", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s```", message)
 	default:
 		message = fmt.Sprintf("%s\r\nWait! What? Are you having me on? I don't know anything about %s", message, command[1])
@@ -956,6 +1069,219 @@ func AddServer(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCre
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
+// AddTimeZone is used to add capabilities for a time zone to ClanEvents
+func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	message := ""
+
+	// Test for correct number of arguments
+	if len(command) != 3 {
+		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Check that current user has permissions
+	if !hasRole(g, s, m, "EventsBotAdmin") {
+		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to add time zones.\r\nYou don't look like you're from Gallifrey either :point_up:")
+		message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Check if abbreviation has already been used
+	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	var newTZ TimeZone
+	err := c.Find(bson.M{"abbrev": command[1]}).One(&newTZ)
+	if err == nil {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("The abbreviation, %s, is already registered for %s", newTZ.Abbrev, newTZ.Location))
+		return
+	}
+
+	newTZ.Abbrev = command[1]
+	newTZ.Location = command[2]
+
+	newLoc, err := time.LoadLocation(newTZ.Location)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot is not so sure about that location. %s. Maybe you should double check that.", newTZ.Location))
+		return
+	}
+	_, err = time.ParseInLocation("02/01/2006 15:04", "24/10/1975 12:00", newLoc)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot is not so sure about that location. %s. Maybe you should double check that.", newTZ.Location))
+		return
+	}
+
+	err = c.Insert(newTZ)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to add the time zone. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+
+	message = fmt.Sprintf("When you hear the signal it will be exactly %s, well in your newly registered timezone, %s, that is. Congrats... I guess.", time.Now().In(newLoc).Format("15:04"), newTZ.Abbrev)
+
+	s.ChannelMessageSend(m.ChannelID, message)
+}
+
+// RemoveTimeZone is used to remove a time zone from ClanEvents
+func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	message := ""
+
+	// Test for correct number of arguments
+	if len(command) != 2 {
+		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = fmt.Sprintf("%s\r\nFor help with removing a time zone, type the following:\r\n```%shelp removetimezone```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Check that current user has permissions
+	if !hasRole(g, s, m, "EventsBotAdmin") {
+		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to remove time zones.\r\nYou don't look like you're from Gallifrey either :point_up:")
+		message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Remove time zone from TimeZones collection
+	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	filter := bson.M{"abbrev": command[1]}
+	info, err := ctz.RemoveAll(filter)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the time zones. Sorry but EventsBot has no answers for you :cry:", command[1]))
+		return
+	}
+
+	// Remove all role time zones referencing this time zone from RoleTimeZones collection
+	crtz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("RoleTimeZones")
+	_, err = crtz.RemoveAll(filter)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the time zones. Sorry but EventsBot has no answers for you :cry:", command[1]))
+		return
+	}
+
+	if info.Removed > 0 {
+		message = fmt.Sprintf("%s has been removed from the list of time zones. Your world just got smaller.", command[1])
+	} else {
+		message = fmt.Sprintf("Are you trying to glitch the universe? %s is not in the list of time zones. :shrug:", command[1])
+	}
+	s.ChannelMessageSend(m.ChannelID, message)
+}
+
+// ListTimeZones is used to display a list of registered time zones
+func ListTimeZones(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	message := ""
+
+	// Test for correct number of arguments
+	if len(command) != 1 {
+		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = fmt.Sprintf("%s\r\nFor help with listing time zones, type the following:\r\n```%shelp listtimezones```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	var timezones []TimeZone
+	err := ctz.Find(bson.M{}).Sort("abbrev").All(&timezones)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+
+	crtz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("RoleTimeZones")
+	var roletzs []ServerRoleTimeZone
+	err = crtz.Find(bson.M{}).Sort("serverRole").All(&roletzs)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+
+	message = fmt.Sprintf("%sList of registered time zones for %s:\r\n", message, g.Name)
+	if len(timezones) == 0 {
+		message = fmt.Sprintf("%sUhm. Nope. There ain't none. :shrug:", message)
+	} else {
+		for _, tz := range timezones {
+			tzLoc, err := time.LoadLocation(tz.Location)
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
+				return
+			}
+			message = fmt.Sprintf("%s**%s**: %s, current time %s\r\n", message, tz.Abbrev, tz.Location, time.Now().In(tzLoc).Format("15:04"))
+		}
+	}
+
+	if len(roletzs) > 0 {
+		message = fmt.Sprintf("%s\r\nServer roles with time zones:\r\n", message)
+		for _, roletz := range roletzs {
+			message = fmt.Sprintf("%s%s: %s\r\n", message, roletz.RoleName, roletz.Abbrev)
+		}
+	}
+
+	s.ChannelMessageSend(m.ChannelID, message)
+}
+
+// RoleTimeZone is used to associate a time zone with a server role
+func RoleTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	message := ""
+
+	// Test for correct number of arguments
+	if len(command) != 3 {
+		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = fmt.Sprintf("%s\r\nFor help with linking a time zone to a server role, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Check that current user has permissions
+	if !hasRole(g, s, m, "EventsBotAdmin") {
+		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to link server roles to time zones.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:")
+		message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Check that the server role exists
+	roleName := command[1]
+	found := false
+	for _, gRole := range g.Roles {
+		if fmt.Sprintf("<@&%s>", gRole.ID) == roleName {
+			found = true
+		}
+	}
+	if !found {
+		message = fmt.Sprintf("Say what? %s? EventsBot doesn't know any such server role.", roleName)
+		message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Check that the time zone exists
+	tz := command[2]
+	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	count, err := ctz.Find(bson.M{"abbrev": tz}).Count()
+	if err != nil || count == 0 {
+		message = fmt.Sprintf("Say what? %s? EventsBot doesn't know any such time zone.", tz)
+		message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Link time zone to role
+	var srtz ServerRoleTimeZone
+	srtz.RoleName = roleName
+	srtz.Abbrev = tz
+	crtz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("RoleTimeZones")
+	filter := bson.M{"serverRole": roleName}
+	_, err = crtz.Upsert(filter, srtz)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to link the %s timezone to the %s server role. Sorry but EventsBot has no answers for you :cry:", srtz.Abbrev, srtz.RoleName))
+		return
+	}
+
+	message = fmt.Sprintf("Booyaa! EventsBot linked the %s time zone to the %s server role", srtz.Abbrev, srtz.RoleName)
+	s.ChannelMessageSend(m.ChannelID, message)
+}
+
 func isUser(arg string) bool {
 	return strings.HasPrefix(arg, "<@")
 }
@@ -994,20 +1320,38 @@ func hasRole(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	for _, gRole := range g.Roles {
 		if gRole.Name == role {
 			roleID = gRole.ID
+			break
 		}
 	}
 	found := false
-	for _, member := range g.Members {
-		if member.User.Username == m.Author.Username {
-			for _, memberrole := range member.Roles {
-				if memberrole == roleID {
-					found = true
-				}
-			}
+	for _, role := range getRoles(g, m) {
+		if role.ID == roleID {
+			found = true
+			break
 		}
 	}
 
 	return found
+}
+
+func getRoles(g *discordgo.Guild, m *discordgo.MessageCreate) []*discordgo.Role {
+	var retval []*discordgo.Role
+
+	roles := make(map[string]*discordgo.Role)
+	for _, gRole := range g.Roles {
+		roles[gRole.ID] = gRole
+	}
+
+	for _, member := range g.Members {
+		if member.User.Username == m.Author.Username {
+			for _, memberRole := range member.Roles {
+				retval = append(retval, roles[memberRole])
+			}
+			break
+		}
+	}
+
+	return retval
 }
 
 func getNickname(g *discordgo.Guild, s *discordgo.Session, userID string) string {
@@ -1016,4 +1360,48 @@ func getNickname(g *discordgo.Guild, s *discordgo.Session, userID string) string
 		return ""
 	}
 	return guildMember.Nick
+}
+
+func getLocation(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate) (*time.Location, string) {
+	retloc := defaultLocation
+	retabbr := ""
+
+	// Start by getting all time zones and server role time zones
+	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	crtz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("RoleTimeZones")
+	var tzs []TimeZone
+	var roletzs []ServerRoleTimeZone
+	tzLookup := make(map[string]TimeZone)
+	err := ctz.Find(bson.M{}).Sort("abbrev").All(&tzs)
+	if err != nil {
+		return retloc, retabbr
+	}
+	err = crtz.Find(bson.M{}).Sort("serverRole").All(&roletzs)
+	if err != nil {
+		return retloc, retabbr
+	}
+
+	for _, tz := range tzs {
+		tzLookup[tz.Abbrev] = tz
+	}
+
+	// Get all roles for specified user
+	memberRoles := getRoles(g, m)
+
+	// Find highest order role for member which has a time zone linked to it
+	highest := 0
+
+	for _, roletz := range roletzs {
+		for _, memberRole := range memberRoles {
+			if fmt.Sprintf("<@&%s>", memberRole.ID) == roletz.RoleName {
+				if memberRole.Position > highest {
+					highest = memberRole.Position
+					retloc, _ = time.LoadLocation(tzLookup[roletz.Abbrev].Location)
+					retabbr = roletz.Abbrev
+				}
+			}
+		}
+	}
+
+	return retloc, retabbr
 }

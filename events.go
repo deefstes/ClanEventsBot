@@ -13,6 +13,7 @@ type ClanEvent struct {
 	EventID      string        `bson:"eventId" json:"eventId"`
 	Creator      ClanUser      `bson:"creator" json:"creator"`
 	DateTime     time.Time     `bson:"dateTime" json:"dateTime"`
+	TimeZone     string        `bson:"timeZone,omitempty" json:"timeZone,omitempty"`
 	Duration     int           `bson:"duration" json:"duration"`
 	Name         string        `bson:"name" json:"name"`
 	Description  string        `bson:"description" json:"description"`
@@ -44,6 +45,6 @@ func (c ClanUser) Mention() string {
 	if c.Mention_deprecated != "" {
 		return c.Mention_deprecated
 	}
-	
+
 	return fmt.Sprintf("<@%s>", c.UserID)
 }

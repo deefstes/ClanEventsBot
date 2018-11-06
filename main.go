@@ -18,12 +18,12 @@ import (
 )
 
 var (
-	buildNumber    string
-	config         Configuration
-	mongoSession   *mgo.Session
-	impersonated   ClanUser
-	timeZone       *time.Location
-	discordSession *discordgo.Session
+	buildNumber     string
+	config          Configuration
+	mongoSession    *mgo.Session
+	impersonated    ClanUser
+	defaultLocation *time.Location
+	discordSession  *discordgo.Session
 )
 
 func main() {
@@ -46,7 +46,7 @@ func main() {
 		return
 	}
 
-	timeZone, _ = time.LoadLocation("Europe/London")
+	defaultLocation, _ = time.LoadLocation("Europe/London")
 
 	// Connect to MongoDB
 	mongoSession, err = mgo.Dial(config.MongoDB)
@@ -98,84 +98,70 @@ func main() {
 
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
-func messageCreate(session *discordgo.Session, message *discordgo.MessageCreate) {
+func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// Ignore all messages created by the bot itself
-	if message.Author.ID == session.State.User.ID {
+	if m.Author.ID == s.State.User.ID {
 		return
 	}
 
 	// If messages is not a command, bail out
-	if !strings.HasPrefix(message.Content, config.CommandPrefix) {
+	if !strings.HasPrefix(m.Content, config.CommandPrefix) {
 		return
 	}
-	command := strings.TrimPrefix(message.Content, config.CommandPrefix)
+	command := strings.TrimPrefix(m.Content, config.CommandPrefix)
 	commandElements := getArgs(command)
 
 	// If message does not contain guild information, bail out
-	guild := getGuild(session, message)
+	guild := getGuild(s, m)
 	if guild == nil {
 		return
 	}
 
 	if config.DebugLevel > 0 {
-		fmt.Printf("Guild=%s, Author=%s(%s), Command=%s\r\n", guild.Name, message.Author.Username, message.Author.ID, command)
+		fmt.Printf("Guild=%s, Author=%s(%s), Command=%s\r\n", guild.Name, m.Author.Username, m.Author.ID, command)
 	}
 
 	if strings.HasPrefix(command, "help") {
-		BotHelp(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "listevents") {
-		ListEvents(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "newevent") {
-		NewEvent(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "cancelevent") {
-		CancelEvent(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "signup") {
-		Signup(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "leave") {
-		Leave(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "impersonate") {
-		Impersonate(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "unimpersonate") {
-		Unimpersonate(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "details") {
-		Details(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "test") {
-		Test(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "wisdom") {
-		Wisdom(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "addnaughtylist") {
-		AddNaughty(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "removenaughtylist") {
-		RemoveNaughty(guild, session, message, commandElements)
-	}
-
-	if strings.HasPrefix(command, "addserver") {
-		AddServer(guild, session, message, commandElements)
+		BotHelp(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "listevents") {
+		ListEvents(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "newevent ") {
+		NewEvent(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "cancelevent ") {
+		CancelEvent(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "signup ") {
+		Signup(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "leave ") {
+		Leave(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "impersonate ") {
+		Impersonate(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "unimpersonate") {
+		Unimpersonate(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "details ") {
+		Details(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "test") {
+		Test(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "wisdom") {
+		Wisdom(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "addnaughtylist ") {
+		AddNaughty(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "removenaughtylist ") {
+		RemoveNaughty(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "addserver") {
+		AddServer(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "addtimezone ") {
+		AddTimeZone(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "removetimezone ") {
+		RemoveTimeZone(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "listtimezones") {
+		ListTimeZones(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "roletimezone ") {
+		RoleTimeZone(guild, s, m, commandElements)
+	} else {
+		message := fmt.Sprintf("If word gets out, everyone will want an extra pancreas so I think they must... uhm, sorry, what? Were you talking to me? Can't you see I'm busy? Anyway, I don't know what **%s** means. It's certainly not a command that I've been programmed with.", commandElements[0])
+		message = fmt.Sprintf("%s\r\nFor a list of valid commands, type the following:\r\n```%shelp```", message, config.CommandPrefix)
+		sendMessage(m.ChannelID, message)
 	}
 }
 
