@@ -284,7 +284,7 @@ func getInsult(mention string) string {
 		fmt.Sprintf("%s is a stuck up, half-witted, scruffy-looking… Nerf herder!", mention),
 		fmt.Sprintf("%s's parents are living proof that two wrongs don't make a right.", mention),
 		fmt.Sprintf("EventsBot farts in %s's general direction.", mention),
-		fmt.Sprintf("%s's brain is so minute that if a hungry cannibal cracked the head open, there wouldn't be enough to cover a small water biscuit.", mention),
+		fmt.Sprintf("%s's brain is so minute that if a hungry cannibal cracked that head open, there wouldn't be enough to cover a small water biscuit.", mention),
 		fmt.Sprintf("%s was fired as a bank clerk when a lady asked to check her balance and %s pushed her over.", mention, mention),
 		fmt.Sprintf("It takes %s two minutes to cook minute rice", mention),
 		fmt.Sprintf("%s's momma is so fat, she was baptised at SeaWorld.", mention),
@@ -305,6 +305,16 @@ func getInsult(mention string) string {
 		fmt.Sprintf("If %s's brains were ink, you couldn't dot an i.", mention),
 		fmt.Sprintf("%s couldn't ride a nightmare without falling out of bed.", mention),
 		fmt.Sprintf("They had to burn down the school to get %s out of fifth grade.", mention),
+		fmt.Sprintf("If laughter is the best medicine, %s's face must be curing the world.", mention),
+		fmt.Sprintf("With that hideous face, %s scares the crap out of the toilet.", mention),
+		fmt.Sprintf("The only way %s will ever get laid is by crawling up a chicken's ass and waiting it out.", mention),
+		fmt.Sprintf("EventsBot is jealous of people who don't know %s.", mention),
+		fmt.Sprintf("Just remember folks, brains aren't everything. In %s's case, they're nothing.", mention),
+		fmt.Sprintf("Look, I understand that some babies were dropped on their heads. But seriously, %s was clearly thrown at a wall.", mention),
+		fmt.Sprintf("Hey %s, why don't you slip into something more comfortable... like a coma.", mention),
+		fmt.Sprintf("%s is the reason the gene pool needs a lifeguard.", mention),
+		fmt.Sprintf("I've seen people like %s before, but I had to pay an admission.", mention),
+		fmt.Sprintf("Turns out that sex position can affect the intelligence of the conceived baby... and clearly %s's parents used the wrong one.", mention),
 	}
 
 	index := rand.Intn(len(canon))
