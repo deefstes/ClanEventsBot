@@ -224,8 +224,29 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
+	var dateNdx, timeNdx, tzNdx, durationNdx, nameNdx, descrNdx, teamNdx = -1, -1, -1, -1, -1, -1, -1
+
 	// Test for correct number of arguments
-	if len(command) < 7 || len(command) > 8 {
+	switch len(command) {
+	case 2:
+		nameNdx = 1
+		descrNdx = 2
+	case 7:
+		dateNdx = 1
+		timeNdx = 2
+		durationNdx = 3
+		nameNdx = 4
+		descrNdx = 5
+		teamNdx = 6
+	case 8:
+		dateNdx = 1
+		timeNdx = 2
+		tzNdx = 3
+		durationNdx = 4
+		nameNdx = 5
+		descrNdx = 6
+		teamNdx = 7
+	default:
 		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
@@ -320,7 +341,6 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		return
 	}
 
-	//newid, _ := baseconv.Encode62FromDec(time.Now().Format("050415020106")) // Convert the current DateTime in reverse order of significance (ssmmHHDDMMYY) to Base62
 	newid := getEventID(time.Now())
 	curUser := impersonated
 	if curUser.UserName == "" {
@@ -331,33 +351,43 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 			DateTime: time.Now(),
 		}
 	}
-	newEvent := ClanEvent{
-		EventID:     newid,
-		Creator:     curUser,
-		DateTime:    dt,
-		TimeZone:    locAbbr,
-		Duration:    duration,
-		Name:        command[4+tzOffset],
-		Description: command[5+tzOffset],
-		TeamSize:    teamSize,
-		Full:        false,
-	}
 
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
-	err = c.Insert(newEvent)
-	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
+	// Two parameters is a special case where an interactive command for setting up a new event is started
+	if len(command) == 2 {
+		newMsg, _ := s.ChannelMessageSend(m.ChannelID, "Yay, we're creating a new event.")
+		escrowEvents[newMsg.ID] = ClanEvent{
+			Creator: curUser,
+		}
 		return
+	} else {
+		newEvent := ClanEvent{
+			EventID:     newid,
+			Creator:     curUser,
+			DateTime:    dt,
+			TimeZone:    locAbbr,
+			Duration:    duration,
+			Name:        command[4+tzOffset],
+			Description: command[5+tzOffset],
+			TeamSize:    teamSize,
+			Full:        false,
+		}
+
+		c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
+		err = c.Insert(newEvent)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
+			return
+		}
+
+		message = fmt.Sprintf("Woohoo! A new event has been created by %s. EventsBot is most pleased :ok_hand:", newEvent.Creator.Mention())
+		message = fmt.Sprintf("%s\r\nEvent ID: **%s**", message, newEvent.EventID)
+		message = fmt.Sprintf("%s\r\n\r\nTo sign up for this event, type the following:", message)
+		message = fmt.Sprintf("%s\r\n```%ssignup %s```", message, config.CommandPrefix, newEvent.EventID)
+		s.ChannelMessageSend(m.ChannelID, message)
+
+		signupCmd := []string{"signup", newEvent.EventID}
+		Signup(g, s, m, signupCmd)
 	}
-
-	message = fmt.Sprintf("Woohoo! A new event has been created by %s. EventsBot is most pleased :ok_hand:", newEvent.Creator.Mention())
-	message = fmt.Sprintf("%s\r\nEvent ID: **%s**", message, newEvent.EventID)
-	message = fmt.Sprintf("%s\r\n\r\nTo sign up for this event, type the following:", message)
-	message = fmt.Sprintf("%s\r\n```%ssignup %s```", message, config.CommandPrefix, newEvent.EventID)
-	s.ChannelMessageSend(m.ChannelID, message)
-
-	signupCmd := []string{"signup", newEvent.EventID}
-	Signup(g, s, m, signupCmd)
 }
 
 // CancelEvent is used to delete a specified event
@@ -440,7 +470,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 	}
 
 	signupUsers := []ClanUser{}
-	
+
 	if len(command) < 2 {
 		message = fmt.Sprintf("Come on! Surely you're not expecting me to guess which event you're trying to sign up to :confused:")
 		message = fmt.Sprintf("%s\r\nFor help with signing up to events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)

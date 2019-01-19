@@ -24,6 +24,7 @@ var (
 	impersonated    ClanUser
 	defaultLocation *time.Location
 	discordSession  *discordgo.Session
+	escrowEvents    map[string]ClanEvent
 )
 
 func main() {
@@ -36,6 +37,8 @@ func main() {
 	if buildNumber == "" {
 		buildNumber = "N/A"
 	}
+
+	escrowEvents = make(map[string]ClanEvent)
 
 	var err error
 
@@ -73,8 +76,9 @@ func main() {
 		}
 	}()
 
-	// Register the messageCreate func as a callback for MessageCreate events.
+	// Register the messageCreate and messageReact functions as callbacks for MessageCreate and MessageReactionAdd events.
 	discordSession.AddHandler(messageCreate)
+	discordSession.AddHandler(messageReact)
 
 	// Open a websocket connection to Discord and begin listening.
 	err = discordSession.Open()
@@ -162,6 +166,16 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		message := fmt.Sprintf("If word gets out, everyone will want an extra pancreas so I think they must... uhm, sorry, what? Were you talking to me? Can't you see I'm busy? Anyway, I don't know what **%s** means. It's certainly not a command that I've been programmed with.", commandElements[0])
 		message = fmt.Sprintf("%s\r\nFor a list of valid commands, type the following:\r\n```%shelp```", message, config.CommandPrefix)
 		sendMessage(m.ChannelID, message)
+	}
+}
+
+// This function will be called (due to AddHandler above) every time a new
+// reaction is added to a message on any channel that the autenticated bot has access to.
+func messageReact(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
+
+	// Ignore all reactions added by the bot itself
+	if m.UserID == s.State.User.ID {
+		return
 	}
 }
 
