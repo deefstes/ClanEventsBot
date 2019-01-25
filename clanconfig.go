@@ -11,6 +11,7 @@ type ClanConfig struct {
 	InsultProbability float32       `bson:"insultProbability" json:"insultProbability"`
 }
 
+// Guild holds Discord server information
 type Guild struct {
 	ObjectID bson.ObjectId `bson:"_id,omitempty" json:"-"`
 	ID       string        `bson:"discordId" json:"discordId"`

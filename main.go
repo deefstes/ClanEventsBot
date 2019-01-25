@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -21,11 +22,19 @@ var (
 	buildNumber     string
 	config          Configuration
 	mongoSession    *mgo.Session
-	impersonated    ClanUser
-	defaultLocation *time.Location
 	discordSession  *discordgo.Session
-	escrowEvents    map[string]ClanEvent
+	defaultLocation *time.Location
+	guildVars       map[string]*GuildVars
 )
+
+type GuildVars struct {
+	guild        Guild
+	impersonated ClanUser
+	timezones    []TimeZone
+	tzByAbbr     map[string]TimeZone
+	tzByEmoji    map[string]TimeZone
+	escrowEvents map[string]DevelopingEvent
+}
 
 func main() {
 	defer func() {
@@ -38,7 +47,8 @@ func main() {
 		buildNumber = "N/A"
 	}
 
-	escrowEvents = make(map[string]ClanEvent)
+	guildVars = make(map[string]*GuildVars)
+	//escrowEvents = make(map[string]DevelopingEvent)
 
 	var err error
 
@@ -57,6 +67,18 @@ func main() {
 		panic(err)
 	}
 	defer mongoSession.Close()
+
+	c := mongoSession.DB("ClanEvents").C("Guilds")
+	var guilds []Guild
+	err = c.Find(bson.M{}).All(&guilds)
+	if err != nil {
+		fmt.Printf("No registered guilds\r\n")
+		//return
+	}
+
+	for _, guild := range guilds {
+		guildVars[guild.ID] = NewGuildVars(guild)
+	}
 
 	// Create a new Discord session using the provided bot token.
 	discordSession, err = discordgo.New("Bot " + config.Token)
@@ -100,6 +122,59 @@ func main() {
 	<-sc
 }
 
+func NewGuildVars(g Guild) *GuildVars {
+	ee := make(map[string]DevelopingEvent)
+	//tzBE := make(map[string]TimeZone)
+	//tzBA := make(map[string]TimeZone)
+
+	var tzs []TimeZone
+	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	err := ctz.Find(bson.M{}).Sort("abbrev").All(&tzs)
+	if err != nil {
+		panic(err)
+	}
+
+	//for _, timezone := range tzs {
+	//	tzBA[timezone.Abbrev] = timezone
+	//	if timezone.Emoji != "" {
+	//		bytearray, err := hex.DecodeString(timezone.Emoji)
+	//		if err != nil {
+	//			panic(err)
+	//		}
+	//		emojistr := string(bytearray[:len(bytearray)])
+	//		tzBE[emojistr] = timezone
+	//	}
+	//}
+	tzBA, tzBE := constructTZMaps(tzs)
+
+	return &GuildVars{
+		guild:        g,
+		timezones:    tzs,
+		tzByAbbr:     tzBA,
+		tzByEmoji:    tzBE,
+		escrowEvents: ee,
+	}
+}
+
+func constructTZMaps(tzs []TimeZone) (tzBA map[string]TimeZone, tzBE map[string]TimeZone) {
+	tzBA = make(map[string]TimeZone)
+	tzBE = make(map[string]TimeZone)
+
+	for _, timezone := range tzs {
+		tzBA[timezone.Abbrev] = timezone
+		if timezone.Emoji != "" {
+			bytearray, err := hex.DecodeString(timezone.Emoji)
+			if err != nil {
+				panic(err)
+			}
+			emojistr := string(bytearray[:len(bytearray)])
+			tzBE[emojistr] = timezone
+		}
+	}
+
+	return tzBA, tzBE
+}
+
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -132,6 +207,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		ListEvents(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "newevent ") {
 		NewEvent(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "new ") {
+		New(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "cancelevent ") {
 		CancelEvent(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "signup ") {
@@ -146,6 +223,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		Details(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "test") {
 		Test(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "echo") {
+		Echo(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "wisdom") {
 		Wisdom(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "addnaughtylist ") {
@@ -177,6 +256,8 @@ func messageReact(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 	if m.UserID == s.State.User.ID {
 		return
 	}
+
+	ProcessReaction(s, m)
 }
 
 func sendMessage(channelID string, message string) {

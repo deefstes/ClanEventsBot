@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -156,7 +157,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 }
 
 // Details is used to display detailed information on a specified event
-// ~details EventID
+// Usage: ~details EventID
 func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
@@ -219,8 +220,56 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
-// NewEvent is used to create a new event
-// ~newevent Date Time (TimeZone) Duration Name Description Size
+// New is used to create a new event interactively
+func New(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	location, locAbbr := getLocation(g, s, m)
+
+	newid := getEventID(time.Now())
+	gv, ok := guildVars[g.ID]
+	if !ok {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble obtaining the guild information :no_mouth:"))
+		return
+	}
+	curUser := gv.impersonated
+	year, month, day := time.Now().Date()
+	if curUser.UserName == "" {
+		curUser = ClanUser{
+			UserName: m.Author.Username,
+			UserID:   m.Author.ID,
+			Nickname: getNickname(g, s, m.Author.ID),
+			DateTime: time.Now(),
+		}
+	}
+
+	eventName := strings.Join(command[1:], " ")
+
+	// Test for name
+	if len(eventName) > 50 {
+		message := fmt.Sprintf("That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:")
+		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp new```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	event := ClanEvent{
+		EventID:  newid,
+		Creator:  curUser,
+		Name:     eventName,
+		DateTime: time.Date(year, month, day, 19, 0, 0, 0, location),
+		TimeZone: locAbbr,
+		Duration: 1,
+		TeamSize: 6,
+	}
+	newEvent := DevelopingEvent{
+		TriggerMessage: m,
+		State:          stateNew,
+		Event:          event,
+	}
+
+	ShowDevelopingEvent(s, m.ChannelID, newEvent)
+}
+
+// NewEvent is used to create a new event with all values provided up front
 func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
@@ -228,9 +277,9 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 
 	// Test for correct number of arguments
 	switch len(command) {
-	case 2:
-		nameNdx = 1
-		descrNdx = 2
+	//case 2:
+	//	nameNdx = 1
+	//	descrNdx = 2
 	case 7:
 		dateNdx = 1
 		timeNdx = 2
@@ -253,19 +302,18 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		return
 	}
 
-	tzOffset := len(command) - 7 // offset value to use later for all parameters that come after the timezone (if present)
 	locAbbr := ""
 	var usrLocation *time.Location
 	// Test for time zone specification
-	if tzOffset > 0 {
-		if !strings.HasPrefix(command[2+tzOffset], "(") || !strings.HasSuffix(command[2+tzOffset], ")") {
-			message = fmt.Sprintf("Is %s supposed to be a time zone? Please put time zones in brackets :point_up:", command[2+tzOffset])
+	if tzNdx > 0 {
+		if !strings.HasPrefix(command[tzNdx], "(") || !strings.HasSuffix(command[tzNdx], ")") {
+			message = fmt.Sprintf("Is %s supposed to be a time zone? Please put time zones in brackets :point_up:", command[tzNdx])
 			message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
 		}
 
-		locAbbr = command[2+tzOffset]
+		locAbbr = command[tzNdx]
 		locAbbr = strings.TrimPrefix(locAbbr, "(")
 		locAbbr = strings.TrimSuffix(locAbbr, ")")
 
@@ -274,8 +322,8 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		var tz TimeZone
 		err := ctz.Find(bson.M{"abbrev": locAbbr}).One(&tz)
 		if err != nil || tz.Location == "" {
-			message = fmt.Sprintf("EventsBot doesn't know that %s time zone. Can we stick to time zones on earth please?", command[2+tzOffset])
-			message = fmt.Sprintf("%s\r\nTo see a list of available time zones, type the following:\r\n```%listtimezones```", message, config.CommandPrefix)
+			message = fmt.Sprintf("EventsBot doesn't know that %s time zone. Can we stick to time zones on earth please?", command[tzNdx])
+			message = fmt.Sprintf("%s\r\nTo see a list of available time zones, type the following:\r\n```%slisttimezones```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
 		}
@@ -292,7 +340,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 	}
 
 	// Test for date and time arguments
-	datetime := fmt.Sprintf("%s %s", command[1], command[2])
+	datetime := fmt.Sprintf("%s %s", command[dateNdx], command[timeNdx])
 	dt, err := time.ParseInLocation("02/01/2006 15:04", datetime, usrLocation)
 	if err != nil {
 		message = fmt.Sprintf("Whoah, not so sure about that date and time (%s). EventsBot is confused :thinking:", datetime)
@@ -308,16 +356,16 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 	}
 
 	// Test for duration
-	duration, err := strconv.Atoi(command[3+tzOffset])
+	duration, err := strconv.Atoi(command[durationNdx])
 	if err != nil {
-		message = fmt.Sprintf("What kind of a duration is %s? EventsBot needs a vacation of %s weeks :beach:", command[3+tzOffset], command[3+tzOffset])
+		message = fmt.Sprintf("What kind of a duration is %s? EventsBot needs a vacation of %s weeks :beach:", command[durationNdx], command[durationNdx])
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
 	// Test for name
-	if len(command[4+tzOffset]) > 50 {
+	if len(command[nameNdx]) > 50 {
 		message = fmt.Sprintf("That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:")
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
@@ -325,7 +373,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 	}
 
 	// Test for description
-	if len(command[5+tzOffset]) > 150 {
+	if len(command[descrNdx]) > 150 {
 		message = fmt.Sprintf("That's a very long description right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 150 characters please. :triumph:")
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
@@ -333,16 +381,16 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 	}
 
 	// Test for size
-	teamSize, err := strconv.Atoi(command[6+tzOffset])
+	teamSize, err := strconv.Atoi(command[teamNdx])
 	if err != nil {
-		message = fmt.Sprintf("How many players you say? %s? EventsBot wouldn't do that if he were you :speak_no_evil:", command[6+tzOffset])
+		message = fmt.Sprintf("How many players you say? %s? EventsBot wouldn't do that if he were you :speak_no_evil:", command[teamNdx])
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
 	newid := getEventID(time.Now())
-	curUser := impersonated
+	curUser := guildVars[g.ID].impersonated
 	if curUser.UserName == "" {
 		curUser = ClanUser{
 			UserName: m.Author.Username,
@@ -350,6 +398,18 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 			Nickname: getNickname(g, s, m.Author.ID),
 			DateTime: time.Now(),
 		}
+	}
+
+	newEvent := ClanEvent{
+		EventID:     newid,
+		Creator:     curUser,
+		DateTime:    dt,
+		TimeZone:    locAbbr,
+		Duration:    duration,
+		Name:        command[nameNdx],
+		Description: command[descrNdx],
+		TeamSize:    teamSize,
+		Full:        false,
 	}
 
 	// Two parameters is a special case where an interactive command for setting up a new event is started
@@ -403,7 +463,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		return
 	}
 
-	curUser := impersonated
+	curUser := guildVars[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
 		curUser = ClanUser{
@@ -458,7 +518,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
-	curUser := impersonated
+	curUser := guildVars[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
 		curUser = ClanUser{
@@ -614,7 +674,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 		return
 	}
 
-	curUser := impersonated
+	curUser := guildVars[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
 		curUser = ClanUser{
@@ -754,6 +814,7 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = "```List of EventsBot commands:"
 		message = fmt.Sprintf("%s\r\n    %slistevents", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %sdetails", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %snew", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %snewevent", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %scancelevent", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %ssignup", message, config.CommandPrefix)
@@ -781,8 +842,16 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s\r\n```%sdetails EventID\r\n", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
 		message = fmt.Sprintf("%s```", message)
+	case "new":
+		message = fmt.Sprintf("%s\r\nHere's how to create a new event (interactive mode):", message)
+		message = fmt.Sprintf("%s\r\n```%snew Name\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n       Name: A name for your event.", message)
+		message = fmt.Sprintf("%s```", message)
+		message = fmt.Sprintf("%s\r\n\r\nHere's an example for you:", message)
+		message = fmt.Sprintf("%s\r\n```%snew Last Wish Training Raid", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\nThis will create an event named \"Last Wish Training Raid\" and the bot will prompt you for the remaining values required.", message)
 	case "newevent":
-		message = fmt.Sprintf("%s\r\nHere's how to create a new event:", message)
+		message = fmt.Sprintf("%s\r\nHere's how to create a new event (explicit mode):", message)
 		message = fmt.Sprintf("%s\r\n```%snewevent Date Time (TimeZone) Duration Name Description Size\r\n", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n       Date: In the format DD/MM/YYYY", message)
 		message = fmt.Sprintf("%s\r\n       Time: In the format HH:MM (24 hour clock)", message)
@@ -843,9 +912,10 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s```", message)
 	case "addtimezone":
 		message = fmt.Sprintf("%s\r\nHere's how to add a time zone to EventsBot:", message)
-		message = fmt.Sprintf("%s\r\n```%saddtimezone Abbrev Location\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n```%saddtimezone Abbrev Location [Emoji]\r\n", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation to be used for this time zone (ie. ET, CT, etc.)", message)
 		message = fmt.Sprintf("%s\r\n   Location: A location that represents the time zone (conforms to the tz database naming convention)", message)
+		message = fmt.Sprintf("%s\r\n      Emoji: A hex representation of a unicode character for the emoji representing the time zone. This value is optional", message)
 		message = fmt.Sprintf("%s\r\n\r\nNote: For more information on the tz database naming convention, see https://en.wikipedia.org/wiki/Tz_database", message)
 		message = fmt.Sprintf("%s\r\n\r\nNote: EventsBot automatically adjusts times based on the specified location's Daylight Saving convention.", message)
 		message = fmt.Sprintf("%s```", message)
@@ -860,6 +930,8 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s```", message)
 	case "roletimezone":
 		message = fmt.Sprintf("%s\r\nHere's how to associate a time zone to a server role:", message)
+		message = fmt.Sprintf("%s\r\n```%sroletimezone Role Abbrev\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n       Role: Server role to which time zone should be linked", message)
 		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation provided when '%saddtimezone' command was issued", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s```", message)
 	default:
@@ -871,6 +943,7 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 }
 
 // Impersonate is used to assume the identity of another Discord user and issue commands on that user's behalf
+// TODO: There is a major problem with this functionality that needs to be fixed. The impersonated user is stored for each guild. This means that, on one Discord server, if Person B impersonates Person A, then everything Person C does will also be done in Person A impersonation mode. The impersonated user needs to stored per user, not per guild.
 func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
@@ -904,14 +977,19 @@ func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		DateTime: time.Now(),
 	}
 
-	impersonated = user
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is now impersonated\r\nEventsBot is regarding this with some sense of apprehension :bust_in_silhouette:", impersonated.DisplayName()))
+	guildVars[g.ID].impersonated = user
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is now impersonated\r\nEventsBot is regarding this with some sense of apprehension :bust_in_silhouette:", guildVars[g.ID].impersonated.DisplayName()))
 }
 
 // Unimpersonate is used to return to the original user's identity after impersonating another user
 func Unimpersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-	impersonated = ClanUser{}
+	guildVars[g.ID].impersonated = ClanUser{}
 	s.ChannelMessageSend(m.ChannelID, "No more of this impersonation business!")
+}
+
+// Echo simply repeats the user's message
+func Echo(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(strings.Join(command[1:], " ")))
 }
 
 // Test is used to simply check that the bot is online and responding
@@ -1101,10 +1179,11 @@ func AddServer(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCre
 
 // AddTimeZone is used to add capabilities for a time zone to ClanEvents
 func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	var newTZ TimeZone
 	message := ""
 
 	// Test for correct number of arguments
-	if len(command) != 3 {
+	if len(command) < 3 || len(command) > 4 {
 		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
 		message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
@@ -1119,17 +1198,22 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		return
 	}
 
-	// Check if abbreviation has already been used
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
-	var newTZ TimeZone
-	err := c.Find(bson.M{"abbrev": command[1]}).One(&newTZ)
-	if err == nil {
+	gv, ok := guildVars[g.ID]
+	if !ok {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble obtaining the guild information :no_mouth:"))
+		return
+	}
+	newTZ, found := gv.tzByAbbr[command[1]]
+	if found {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("The abbreviation, %s, is already registered for %s", newTZ.Abbrev, newTZ.Location))
 		return
 	}
 
 	newTZ.Abbrev = command[1]
 	newTZ.Location = command[2]
+	if len(command) > 3 {
+		newTZ.Emoji = command[3]
+	}
 
 	newLoc, err := time.LoadLocation(newTZ.Location)
 	if err != nil {
@@ -1142,11 +1226,17 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		return
 	}
 
+	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
 	err = c.Insert(newTZ)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to add the time zone. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
+
+	gv.timezones = append(gv.timezones, newTZ)
+	tzBA, tzBE := constructTZMaps(gv.timezones)
+	gv.tzByAbbr = tzBA
+	gv.tzByEmoji = tzBE
 
 	message = fmt.Sprintf("When you hear the signal it will be exactly %s, well in your newly registered timezone, %s, that is. Congrats... I guess.", time.Now().In(newLoc).Format("15:04"), newTZ.Abbrev)
 
@@ -1173,6 +1263,13 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 		return
 	}
 
+	// Get guild variables
+	gv, ok := guildVars[g.ID]
+	if !ok {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble obtaining the guild information :no_mouth:"))
+		return
+	}
+
 	// Remove time zone from TimeZones collection
 	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
 	filter := bson.M{"abbrev": command[1]}
@@ -1189,6 +1286,21 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the time zones. Sorry but EventsBot has no answers for you :cry:", command[1]))
 		return
 	}
+
+	// Remove time zone from guild variables timezones slice
+	index := -1
+	for i, tz := range gv.timezones {
+		if tz.Abbrev == command[1] {
+			index = i
+		}
+	}
+	if index > -1 {
+		gv.timezones = append(gv.timezones[:index], gv.timezones[index+1:]...)
+	}
+
+	tzBA, tzBE := constructTZMaps(gv.timezones)
+	gv.tzByAbbr = tzBA
+	gv.tzByEmoji = tzBE
 
 	if info.Removed > 0 {
 		message = fmt.Sprintf("%s has been removed from the list of time zones. Your world just got smaller.", command[1])
@@ -1236,7 +1348,18 @@ func ListTimeZones(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 				s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
 				return
 			}
-			message = fmt.Sprintf("%s**%s**: %s, current time %s\r\n", message, tz.Abbrev, tz.Location, time.Now().In(tzLoc).Format("15:04"))
+			message = fmt.Sprintf("%s**%s**: %s, current time %s", message, tz.Abbrev, tz.Location, time.Now().In(tzLoc).Format("15:04"))
+			if tz.Emoji != "" {
+				bytearray, err := hex.DecodeString(tz.Emoji)
+				if err != nil {
+					s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to interpret the time zone icon. Sorry but EventsBot has no answers for you :cry:")
+					return
+				}
+				emojistr := string(bytearray[:len(bytearray)])
+				message = fmt.Sprintf("%s %s\r\n", message, emojistr)
+			} else {
+				message = fmt.Sprintf("%s\r\n", message)
+			}
 		}
 	}
 

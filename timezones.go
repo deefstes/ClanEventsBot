@@ -9,6 +9,7 @@ type TimeZone struct {
 	ObjectID bson.ObjectId `bson:"_id,omitempty" json:"-"`
 	Abbrev   string        `bson:"abbrev" json:"abbrev"`
 	Location string        `bson:"location" json:"location"`
+	Emoji    string        `bson:"emoji,omitempty" json:"emoji,omitempty"`
 }
 
 type ServerRoleTimeZone struct {
