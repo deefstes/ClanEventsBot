@@ -412,42 +412,21 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		Full:        false,
 	}
 
-	// Two parameters is a special case where an interactive command for setting up a new event is started
-	if len(command) == 2 {
-		newMsg, _ := s.ChannelMessageSend(m.ChannelID, "Yay, we're creating a new event.")
-		escrowEvents[newMsg.ID] = ClanEvent{
-			Creator: curUser,
-		}
+	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
+	err = c.Insert(newEvent)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
-	} else {
-		newEvent := ClanEvent{
-			EventID:     newid,
-			Creator:     curUser,
-			DateTime:    dt,
-			TimeZone:    locAbbr,
-			Duration:    duration,
-			Name:        command[4+tzOffset],
-			Description: command[5+tzOffset],
-			TeamSize:    teamSize,
-			Full:        false,
-		}
-
-		c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
-		err = c.Insert(newEvent)
-		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
-			return
-		}
-
-		message = fmt.Sprintf("Woohoo! A new event has been created by %s. EventsBot is most pleased :ok_hand:", newEvent.Creator.Mention())
-		message = fmt.Sprintf("%s\r\nEvent ID: **%s**", message, newEvent.EventID)
-		message = fmt.Sprintf("%s\r\n\r\nTo sign up for this event, type the following:", message)
-		message = fmt.Sprintf("%s\r\n```%ssignup %s```", message, config.CommandPrefix, newEvent.EventID)
-		s.ChannelMessageSend(m.ChannelID, message)
-
-		signupCmd := []string{"signup", newEvent.EventID}
-		Signup(g, s, m, signupCmd)
 	}
+
+	message = fmt.Sprintf("Woohoo! A new event has been created by %s. EventsBot is most pleased :ok_hand:", newEvent.Creator.Mention())
+	message = fmt.Sprintf("%s\r\nEvent ID: **%s**", message, newEvent.EventID)
+	message = fmt.Sprintf("%s\r\n\r\nTo sign up for this event, type the following:", message)
+	message = fmt.Sprintf("%s\r\n```%ssignup %s```", message, config.CommandPrefix, newEvent.EventID)
+	s.ChannelMessageSend(m.ChannelID, message)
+
+	signupCmd := []string{"signup", newEvent.EventID}
+	Signup(g, s, m, signupCmd)
 }
 
 // CancelEvent is used to delete a specified event
