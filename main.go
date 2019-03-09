@@ -184,6 +184,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	// Ignore any messages created by other bots
+	if m.Author.Bot {
+		return
+	}
+
 	// If messages is not a command, bail out
 	if !strings.HasPrefix(m.Content, config.CommandPrefix) {
 		return
@@ -209,6 +214,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		NewEvent(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "new ") {
 		New(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "edit ") {
+		Edit(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "cancelevent ") {
 		CancelEvent(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "signup ") {

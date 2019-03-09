@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type EventState int
@@ -24,6 +25,7 @@ type DevelopingEvent struct {
 	TriggerMessage *discordgo.MessageCreate
 	State          EventState
 	Event          ClanEvent
+	Committed      bool
 }
 
 // ShowDevelopingEvent is used to display the progress of an interactive new event
@@ -121,13 +123,15 @@ func ShowDevelopingEvent(s *discordgo.Session, channel string, newEvent Developi
 		message = fmt.Sprintf("%s\r\n👍 = Continue", message)
 		message = fmt.Sprintf("%s\r\n❌ = Cancel", message)
 	case stateDone:
-		message = fmt.Sprintf("%s\r\n✅ = OK", message)
-		message = fmt.Sprintf("%s\r\n❌ = Cancel", message)
-		message = fmt.Sprintf("%s\r\n🗓 = Back to Date", message)
-		message = fmt.Sprintf("%s\r\n🕑 = Back to Time", message)
-		message = fmt.Sprintf("%s\r\n🌍 = Back to Time Zone", message)
-		message = fmt.Sprintf("%s\r\n⏳ = Back to Duration", message)
-		message = fmt.Sprintf("%s\r\n👬 = Back to Team Size", message)
+		EditEvent(s, channel, newEvent.MessageID, "")
+		return
+		// message = fmt.Sprintf("%s\r\n✅ = OK", message)
+		// message = fmt.Sprintf("%s\r\n❌ = Cancel", message)
+		// message = fmt.Sprintf("%s\r\n🗓 = Back to Date", message)
+		// message = fmt.Sprintf("%s\r\n🕑 = Back to Time", message)
+		// message = fmt.Sprintf("%s\r\n🌍 = Back to Time Zone", message)
+		// message = fmt.Sprintf("%s\r\n⏳ = Back to Duration", message)
+		// message = fmt.Sprintf("%s\r\n👬 = Back to Team Size", message)
 	default:
 	}
 
@@ -378,6 +382,7 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 	ShowDevelopingEvent(s, m.MessageReaction.ChannelID, event)
 }
 
+// CommitEvent is used to move an event from Escrow to the DB
 func CommitEvent(s *discordgo.Session, channelID string, newEvent DevelopingEvent) {
 	// Get channel
 	channel, err := s.Channel(channelID)
@@ -408,4 +413,91 @@ func CommitEvent(s *discordgo.Session, channelID string, newEvent DevelopingEven
 
 	signupCmd := []string{"signup", newEvent.Event.EventID}
 	Signup(guild, s, newEvent.TriggerMessage, signupCmd)
+}
+
+// EditEvent is used to change the details of an event
+func EditEvent(s *discordgo.Session, channelID string, messageID string, eventID string) {
+
+	// Get channel
+	c, err := s.Channel(channelID)
+	if err != nil {
+		s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot had trouble obtaining the channel information :no_mouth:"))
+		return
+	}
+
+	// Find message in EscrowEvents
+	gv, ok := guildVars[c.GuildID]
+	if !ok {
+		return
+	}
+	_, ok = gv.escrowEvents[messageID]
+	if !ok {
+		// If no event is found in escrow for the specified message, it could mean that it's referring to an event already in the db and needs to be pulled from there
+
+		// Find event in DB
+		c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", c.GuildID)).C("Events")
+
+		var event ClanEvent
+		err := c.Find(bson.M{"eventId": eventID}).One(&event)
+		if err != nil {
+			s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. :grimacing:", eventID))
+			return
+		}
+
+		newEvent := DevelopingEvent{
+			TriggerMessage: nil,
+			State:          stateDone,
+			Event:          event,
+		}
+		gv.escrowEvents[messageID] = newEvent
+	}
+	developingEvent, ok := gv.escrowEvents[messageID]
+
+	// Get time zone
+	tzInfo := ""
+	eventLocation := defaultLocation
+
+	if developingEvent.Event.TimeZone != "" {
+		tz, ok := gv.tzByAbbr[developingEvent.Event.TimeZone]
+		if !ok {
+			s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:"))
+			return
+		}
+		tzInfo = tz.Abbrev
+		eventLocation, _ = time.LoadLocation(tz.Location)
+	}
+
+	// Construct message
+	message := fmt.Sprintf("EDIT EVENT")
+	message = fmt.Sprintf("%s\r\n**Creator:** %s", message, developingEvent.Event.Creator.Mention())
+	message = fmt.Sprintf("%s\r\n**Name:** %s", message, developingEvent.Event.Name)
+	message = fmt.Sprintf("%s\r\n**Date:** %s", message, developingEvent.Event.DateTime.In(eventLocation).Format("Mon 2 Jan 2006"))
+	message = fmt.Sprintf("%s\r\n**Time:** %s", message, developingEvent.Event.DateTime.In(eventLocation).Format("15:04"))
+	if developingEvent.Event.TimeZone != "" {
+		message = fmt.Sprintf("%s (%s)", message, tzInfo)
+	}
+	message = fmt.Sprintf("%s\r\n**Duration:** %d", message, developingEvent.Event.Duration)
+	message = fmt.Sprintf("%s\r\n**Team Size:** %d", message, developingEvent.Event.TeamSize)
+	message = fmt.Sprintf("%s\r\n\r\nDoes the above appear correct?", message)
+	message = fmt.Sprintf("%s\r\n✅ = OK", message)
+	message = fmt.Sprintf("%s\r\n❌ = Cancel", message)
+	message = fmt.Sprintf("%s\r\n🗓 = Change Date", message)
+	message = fmt.Sprintf("%s\r\n🕑 = Change Time", message)
+	message = fmt.Sprintf("%s\r\n🌍 = Change Time Zone", message)
+	message = fmt.Sprintf("%s\r\n⏳ = Change Duration", message)
+	message = fmt.Sprintf("%s\r\n👬 = Change Team Size", message)
+
+	// Add appliccable reactions
+	s.MessageReactionsRemoveAll(channelID, developingEvent.MessageID)
+	s.MessageReactionAdd(channelID, developingEvent.MessageID, "✅")
+	s.MessageReactionAdd(channelID, developingEvent.MessageID, "❌")
+	s.MessageReactionAdd(channelID, developingEvent.MessageID, "🗓")
+	s.MessageReactionAdd(channelID, developingEvent.MessageID, "🕑")
+	s.MessageReactionAdd(channelID, developingEvent.MessageID, "🌍")
+	s.MessageReactionAdd(channelID, developingEvent.MessageID, "⏳")
+	s.MessageReactionAdd(channelID, developingEvent.MessageID, "👬")
+
+	// Post or update message
+	s.ChannelMessageEdit(channelID, messageID, "")
+	s.ChannelMessageEdit(channelID, messageID, message)
 }

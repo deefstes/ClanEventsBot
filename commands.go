@@ -12,6 +12,154 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// BotHelp is used to display a list of available commands or instructions on using a specified command
+func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	if len(command) == 1 {
+		command = append(command, "nothing")
+	}
+
+	message := fmt.Sprintf("Need some help with the __%s__ command? EventsBot is happy to oblige :nerd:", command[1])
+
+	switch command[1] {
+	case "nothing":
+		message = "```List of EventsBot commands:"
+		message = fmt.Sprintf("%s\r\n    %slistevents", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %sdetails", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %snew", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %snewevent", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %scancelevent", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %ssignup", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %sleave", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %swisdom", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %slisttimezones", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n\r\nCommands that require Admin priviledges", message)
+		message = fmt.Sprintf("%s\r\n    %saddserver", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %saddtimezone", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %sremovetimezone", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %sroletimezone", message, config.CommandPrefix)
+		//message = fmt.Sprintf("%s\r\n    %simpersonate", message, config.CommandPrefix)
+		//message = fmt.Sprintf("%s\r\n    %sunimpersonate", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s```", message)
+		message = fmt.Sprintf("%sYou can get help on any of these commands by typing %shelp followed by the name of the command", message, config.CommandPrefix)
+	case "listevents":
+		message = fmt.Sprintf("%s\r\nHere's how to get a list of upcoming events:", message)
+		message = fmt.Sprintf("%s\r\n```%slistevents [Date] [@Username]\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n       Date: The date for which you want to see events. This value is optional", message)
+		message = fmt.Sprintf("%s\r\n  @Username: The Discord user for which you want to see events. This value is optional.", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: Both the date and username values are optional. You can specify either, neither or both but then they must be in the order shown above. If you omit the date, you will be shown all upcoming events and if you omit the user you will be shown events for all users.", message)
+		message = fmt.Sprintf("%s```", message)
+	case "details":
+		message = fmt.Sprintf("%s\r\nHere's how to get details for an event:", message)
+		message = fmt.Sprintf("%s\r\n```%sdetails EventID\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s```", message)
+	case "new":
+		message = fmt.Sprintf("%s\r\nHere's how to create a new event (interactive mode):", message)
+		message = fmt.Sprintf("%s\r\n```%snew Name\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n       Name: A name for your event.", message)
+		message = fmt.Sprintf("%s```", message)
+		message = fmt.Sprintf("%s\r\n\r\nHere's an example for you:", message)
+		message = fmt.Sprintf("%s\r\n```%snew Last Wish Training Raid", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\nThis will create an event named \"Last Wish Training Raid\" and the bot will prompt you for the remaining values required.", message)
+	case "newevent":
+		message = fmt.Sprintf("%s\r\nHere's how to create a new event (explicit mode):", message)
+		message = fmt.Sprintf("%s\r\n```%snewevent Date Time (TimeZone) Duration Name Description Size\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n       Date: In the format DD/MM/YYYY", message)
+		message = fmt.Sprintf("%s\r\n       Time: In the format HH:MM (24 hour clock)", message)
+		message = fmt.Sprintf("%s\r\n   TimeZone: A time zone abbreviation between brackets", message)
+		message = fmt.Sprintf("%s\r\n   Duration: Number of hours the event will last", message)
+		message = fmt.Sprintf("%s\r\n       Name: A name for your event. Surround it in quotes if it's more than one word", message)
+		message = fmt.Sprintf("%s\r\nDescription: A longer description of your event. You totally want to surround this one in quotes", message)
+		message = fmt.Sprintf("%s\r\n   TeamSize: Just a number denoting how many players can sign up", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: Specifying a time zone is optional, as can be seen in the example below. If no time zone is specified, the role default time zone will be used.", message)
+		message = fmt.Sprintf("%s```", message)
+		message = fmt.Sprintf("%s\r\n\r\nHere's an example for you:", message)
+		message = fmt.Sprintf("%s\r\n```%snewevent %s 20:00 2 \"Normal Leviathan\" \"Fresh start of Leviathan raid\" 6```", message, config.CommandPrefix, time.Now().Format("02/01/2006"))
+		message = fmt.Sprintf("%s\r\nThis will create a 2 hour event to start at 8pm tonight and which will allow 6 people to sign up", message)
+	case "edit":
+		message = fmt.Sprintf("%s\r\nHere's how to edit an event:", message)
+		message = fmt.Sprintf("%s\r\n```%sedit EventID\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 4 character identifier that uniquely identifies the event. Take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\nThis will bring up an interactive message allowing you to edit the", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: Only the creator of an event or users with the EventsBotAdmin role assigned can edit an event.", message)
+		message = fmt.Sprintf("%s```", message)
+	case "cancelevent":
+		message = fmt.Sprintf("%s\r\nHere's how to cancel an event:", message)
+		message = fmt.Sprintf("%s\r\n```%scancelevent EventID\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: Only the creator of an event or users with the EventsBotAdmin role assigned can cancel an event.", message)
+		message = fmt.Sprintf("%s```", message)
+	case "signup":
+		message = fmt.Sprintf("%s\r\nHere's how to sign up to an event:", message)
+		message = fmt.Sprintf("%s\r\n```%ssignup EventID [@Username] [@Username] ...\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n  @Username: List of Discord users whom you wish to sign up to the event. Only the event creator and users with the EventsBotAdmin role assigned are allowed to sign users other than themselves up to an event. This value is optional.", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: You can still sign up to an event even if it is already full. You will then be registered as a reserve for the event and promoted if someone leaves the event.", message)
+		message = fmt.Sprintf("%s```", message)
+	case "leave":
+		message = fmt.Sprintf("%s\r\nHere's how to leave an event:", message)
+		message = fmt.Sprintf("%s\r\n```%sleave EventID [@Username]\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n  @Username: The Discord user whom you wish to remove from the event. Only the event creator and users with the EventsBotAdmin role assigned are allowed to remove users other than themselves from an event. This value is optional.", message)
+		message = fmt.Sprintf("%s```", message)
+	case "impersonate":
+		message = fmt.Sprintf("%s\r\nHere's how to impersonate a user:", message)
+		message = fmt.Sprintf("%s\r\n```%simpersonate @Username\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n  @Username: The Discord user you wish to impersonate", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: This will have the effect of any further commands you issue, until you've issued %sunimpersonate, behaving as if they originated from the specified user. This is dangerous of course and so only users with the EventsBotAdmin role assigned are allowed to issue this command. You have been warned.", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s```", message)
+	case "unimpersonate":
+		message = fmt.Sprintf("%s\r\nHere's how to stop impersonating a user:", message)
+		message = fmt.Sprintf("%s\r\n```%sunimpersonate\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%sYes, it's that simple", message)
+		message = fmt.Sprintf("%s```", message)
+	case "wisdom":
+		message = fmt.Sprintf("%s\r\nHere's how to obtain a nugget of wisdom:", message)
+		message = fmt.Sprintf("%s\r\n```%swisdom\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%sYes, it's that simple. Just ask and you shall receive.", message)
+		message = fmt.Sprintf("%s```", message)
+	case "addnaughtylist":
+		message = fmt.Sprintf("%s\r\nHere's how to add a user to the naughty list:", message)
+		message = fmt.Sprintf("%s\r\n```%saddnaughtylist @Username\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n  @Username: The Discord user you wish to add to the naughty list", message)
+		message = fmt.Sprintf("%s```", message)
+	case "addserver":
+		message = fmt.Sprintf("%s\r\nHere's how to add a server to EventsBot:", message)
+		message = fmt.Sprintf("%s\r\n```%saddserver\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%sYes, it's that simple", message)
+		message = fmt.Sprintf("%s```", message)
+	case "addtimezone":
+		message = fmt.Sprintf("%s\r\nHere's how to add a time zone to EventsBot:", message)
+		message = fmt.Sprintf("%s\r\n```%saddtimezone Abbrev Location [Emoji]\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation to be used for this time zone (ie. ET, CT, etc.)", message)
+		message = fmt.Sprintf("%s\r\n   Location: A location that represents the time zone (conforms to the tz database naming convention)", message)
+		message = fmt.Sprintf("%s\r\n      Emoji: A hex representation of a unicode character for the emoji representing the time zone. This value is optional", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: For more information on the tz database naming convention, see https://en.wikipedia.org/wiki/Tz_database", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: EventsBot automatically adjusts times based on the specified location's Daylight Saving convention.", message)
+		message = fmt.Sprintf("%s```", message)
+	case "removetimezone":
+		message = fmt.Sprintf("%s\r\nHere's how to remove a time zone from EventsBot:", message)
+		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation for the time zone to be removed", message)
+		message = fmt.Sprintf("%s```", message)
+	case "listtimezones":
+		message = fmt.Sprintf("%s\r\nHere's how to obtain a list of time zones:", message)
+		message = fmt.Sprintf("%s\r\n```%slisttimezones\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%sYes, it's that simple. Just ask and you shall receive.", message)
+		message = fmt.Sprintf("%s```", message)
+	case "roletimezone":
+		message = fmt.Sprintf("%s\r\nHere's how to associate a time zone to a server role:", message)
+		message = fmt.Sprintf("%s\r\n```%sroletimezone Role Abbrev\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n       Role: Server role to which time zone should be linked", message)
+		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation provided when '%saddtimezone' command was issued", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s```", message)
+	default:
+		message = fmt.Sprintf("%s\r\nWait! What? Are you having me on? I don't know anything about %s", message, command[1])
+		message = fmt.Sprintf("%s\r\nEventsBot is not amused :expressionless:", message)
+	}
+
+	s.ChannelMessageSend(m.ChannelID, message)
+}
+
 // ListEvents is used to list all upcoming events on a specified (optional) date, for a specified (optional) user
 // ~listevents
 // ~listevents @username
@@ -175,7 +323,7 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	var event ClanEvent
 	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	}
 
@@ -429,6 +577,58 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 	Signup(g, s, m, signupCmd)
 }
 
+// Edit is used to edit an existing event
+func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	message := ""
+
+	// Test for correct number of arguments
+	if len(command) != 2 {
+		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = fmt.Sprintf("%s\r\nFor help with cancelling an event, type the following:\r\n```%shelp cancelevent```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	curUser := guildVars[g.ID].impersonated
+	curUser.DateTime = time.Now()
+	if curUser.UserName == "" {
+		curUser = ClanUser{
+			UserName: m.Author.Username,
+			UserID:   m.Author.ID,
+			Nickname: getNickname(g, s, m.Author.ID),
+			DateTime: time.Now(),
+		}
+	}
+
+	// Find event in DB
+	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
+
+	var event ClanEvent
+	err := c.Find(bson.M{"eventId": strings.ToUpper(command[1])}).One(&event)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	}
+
+	// Check that user has permissions
+	allowed := false
+	if event.Creator.UserName == curUser.UserName {
+		allowed = true
+	} else if hasRole(g, s, m, "EventsBotAdmin") {
+		allowed = true
+	}
+
+	if !allowed {
+		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to edit this event.\r\nEventsBot will not stand for this :point_up:")
+		message = fmt.Sprintf("%s\r\nFor help with editing events, type the following:\r\n```%shelp edit```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	newMsg, _ := s.ChannelMessageSend(m.ChannelID, "EDIT EVENT")
+	EditEvent(s, m.ChannelID, newMsg.ID, strings.ToUpper(command[1]))
+}
+
 // CancelEvent is used to delete a specified event
 // ~cancelevent EventID
 func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
@@ -459,7 +659,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	var event ClanEvent
 	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	}
 
@@ -551,7 +751,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 	var event ClanEvent
 	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	}
 
@@ -689,7 +889,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	var event ClanEvent
 	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. Remember, they're case sensitive :grimacing:", command[1]))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	}
 
@@ -777,147 +977,6 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
-	s.ChannelMessageSend(m.ChannelID, message)
-}
-
-// BotHelp is used to display a list of available commands or instructions on using a specified command
-func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-	if len(command) == 1 {
-		command = append(command, "nothing")
-	}
-
-	message := fmt.Sprintf("Need some help with the __%s__ command? EventsBot is happy to oblige :nerd:", command[1])
-
-	switch command[1] {
-	case "nothing":
-		message = "```List of EventsBot commands:"
-		message = fmt.Sprintf("%s\r\n    %slistevents", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %sdetails", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %snew", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %snewevent", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %scancelevent", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %ssignup", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %sleave", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %swisdom", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %slisttimezones", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n\r\nCommands that require Admin priviledges", message)
-		message = fmt.Sprintf("%s\r\n    %saddserver", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %saddtimezone", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %sremovetimezone", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    %sroletimezone", message, config.CommandPrefix)
-		//message = fmt.Sprintf("%s\r\n    %simpersonate", message, config.CommandPrefix)
-		//message = fmt.Sprintf("%s\r\n    %sunimpersonate", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s```", message)
-		message = fmt.Sprintf("%sYou can get help on any of these commands by typing %shelp followed by the name of the command", message, config.CommandPrefix)
-	case "listevents":
-		message = fmt.Sprintf("%s\r\nHere's how to get a list of upcoming events:", message)
-		message = fmt.Sprintf("%s\r\n```%slistevents [Date] [@Username]\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n       Date: The date for which you want to see events. This value is optional", message)
-		message = fmt.Sprintf("%s\r\n  @Username: The Discord user for which you want to see events. This value is optional.", message)
-		message = fmt.Sprintf("%s\r\n\r\nNote: Both the date and username values are optional. You can specify either, neither or both but then they must be in the order shown above. If you omit the date, you will be shown all upcoming events and if you omit the user you will be shown events for all users.", message)
-		message = fmt.Sprintf("%s```", message)
-	case "details":
-		message = fmt.Sprintf("%s\r\nHere's how to get details for an event:", message)
-		message = fmt.Sprintf("%s\r\n```%sdetails EventID\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
-		message = fmt.Sprintf("%s```", message)
-	case "new":
-		message = fmt.Sprintf("%s\r\nHere's how to create a new event (interactive mode):", message)
-		message = fmt.Sprintf("%s\r\n```%snew Name\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n       Name: A name for your event.", message)
-		message = fmt.Sprintf("%s```", message)
-		message = fmt.Sprintf("%s\r\n\r\nHere's an example for you:", message)
-		message = fmt.Sprintf("%s\r\n```%snew Last Wish Training Raid", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\nThis will create an event named \"Last Wish Training Raid\" and the bot will prompt you for the remaining values required.", message)
-	case "newevent":
-		message = fmt.Sprintf("%s\r\nHere's how to create a new event (explicit mode):", message)
-		message = fmt.Sprintf("%s\r\n```%snewevent Date Time (TimeZone) Duration Name Description Size\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n       Date: In the format DD/MM/YYYY", message)
-		message = fmt.Sprintf("%s\r\n       Time: In the format HH:MM (24 hour clock)", message)
-		message = fmt.Sprintf("%s\r\n   TimeZone: A time zone abbreviation between brackets", message)
-		message = fmt.Sprintf("%s\r\n   Duration: Number of hours the event will last", message)
-		message = fmt.Sprintf("%s\r\n       Name: A name for your event. Surround it in quotes if it's more than one word", message)
-		message = fmt.Sprintf("%s\r\nDescription: A longer description of your event. You totally want to surround this one in quotes", message)
-		message = fmt.Sprintf("%s\r\n   TeamSize: Just a number denoting how many players can sign up", message)
-		message = fmt.Sprintf("%s\r\n\r\nNote: Specifying a time zone is optional, as can be seen in the example below. If no time zone is specified, the role default time zone will be used.", message)
-		message = fmt.Sprintf("%s```", message)
-		message = fmt.Sprintf("%s\r\n\r\nHere's an example for you:", message)
-		message = fmt.Sprintf("%s\r\n```%snewevent %s 20:00 2 \"Normal Leviathan\" \"Fresh start of Leviathan raid\" 6```", message, config.CommandPrefix, time.Now().Format("02/01/2006"))
-		message = fmt.Sprintf("%s\r\nThis will create a 2 hour event to start at 8pm tonight and which will allow 6 people to sign up", message)
-	case "cancelevent":
-		message = fmt.Sprintf("%s\r\nHere's how to cancel an event:", message)
-		message = fmt.Sprintf("%s\r\n```%scancelevent EventID\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
-		message = fmt.Sprintf("%s\r\n\r\nNote: Only the creator of an event or users with the EventsBotAdmin role assigned can cancel an event.", message)
-		message = fmt.Sprintf("%s```", message)
-	case "signup":
-		message = fmt.Sprintf("%s\r\nHere's how to sign up to an event:", message)
-		message = fmt.Sprintf("%s\r\n```%ssignup EventID [@Username] [@Username] ...\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
-		message = fmt.Sprintf("%s\r\n  @Username: List of Discord users whom you wish to sign up to the event. Only the event creator and users with the EventsBotAdmin role assigned are allowed to sign users other than themselves up to an event. This value is optional.", message)
-		message = fmt.Sprintf("%s\r\n\r\nNote: You can still sign up to an event even if it is already full. You will then be registered as a reserve for the event and promoted if someone leaves the event.", message)
-		message = fmt.Sprintf("%s```", message)
-	case "leave":
-		message = fmt.Sprintf("%s\r\nHere's how to leave an event:", message)
-		message = fmt.Sprintf("%s\r\n```%sleave EventID [@Username]\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
-		message = fmt.Sprintf("%s\r\n  @Username: The Discord user whom you wish to remove from the event. Only the event creator and users with the EventsBotAdmin role assigned are allowed to remove users other than themselves from an event. This value is optional.", message)
-		message = fmt.Sprintf("%s```", message)
-	case "impersonate":
-		message = fmt.Sprintf("%s\r\nHere's how to impersonate a user:", message)
-		message = fmt.Sprintf("%s\r\n```%simpersonate @Username\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n  @Username: The Discord user you wish to impersonate", message)
-		message = fmt.Sprintf("%s\r\n\r\nNote: This will have the effect of any further commands you issue, until you've issued %sunimpersonate, behaving as if they originated from the specified user. This is dangerous of course and so only users with the EventsBotAdmin role assigned are allowed to issue this command. You have been warned.", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s```", message)
-	case "unimpersonate":
-		message = fmt.Sprintf("%s\r\nHere's how to stop impersonating a user:", message)
-		message = fmt.Sprintf("%s\r\n```%sunimpersonate\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%sYes, it's that simple", message)
-		message = fmt.Sprintf("%s```", message)
-	case "wisdom":
-		message = fmt.Sprintf("%s\r\nHere's how to obtain a nugget of wisdom:", message)
-		message = fmt.Sprintf("%s\r\n```%swisdom\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%sYes, it's that simple. Just ask and you shall receive.", message)
-		message = fmt.Sprintf("%s```", message)
-	case "addnaughtylist":
-		message = fmt.Sprintf("%s\r\nHere's how to add a user to the naughty list:", message)
-		message = fmt.Sprintf("%s\r\n```%saddnaughtylist @Username\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n  @Username: The Discord user you wish to add to the naughty list", message)
-		message = fmt.Sprintf("%s```", message)
-	case "addserver":
-		message = fmt.Sprintf("%s\r\nHere's how to add a server to EventsBot:", message)
-		message = fmt.Sprintf("%s\r\n```%saddserver\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%sYes, it's that simple", message)
-		message = fmt.Sprintf("%s```", message)
-	case "addtimezone":
-		message = fmt.Sprintf("%s\r\nHere's how to add a time zone to EventsBot:", message)
-		message = fmt.Sprintf("%s\r\n```%saddtimezone Abbrev Location [Emoji]\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation to be used for this time zone (ie. ET, CT, etc.)", message)
-		message = fmt.Sprintf("%s\r\n   Location: A location that represents the time zone (conforms to the tz database naming convention)", message)
-		message = fmt.Sprintf("%s\r\n      Emoji: A hex representation of a unicode character for the emoji representing the time zone. This value is optional", message)
-		message = fmt.Sprintf("%s\r\n\r\nNote: For more information on the tz database naming convention, see https://en.wikipedia.org/wiki/Tz_database", message)
-		message = fmt.Sprintf("%s\r\n\r\nNote: EventsBot automatically adjusts times based on the specified location's Daylight Saving convention.", message)
-		message = fmt.Sprintf("%s```", message)
-	case "removetimezone":
-		message = fmt.Sprintf("%s\r\nHere's how to remove a time zone from EventsBot:", message)
-		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation for the time zone to be removed", message)
-		message = fmt.Sprintf("%s```", message)
-	case "listtimezones":
-		message = fmt.Sprintf("%s\r\nHere's how to obtain a list of time zones:", message)
-		message = fmt.Sprintf("%s\r\n```%slisttimezones\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%sYes, it's that simple. Just ask and you shall receive.", message)
-		message = fmt.Sprintf("%s```", message)
-	case "roletimezone":
-		message = fmt.Sprintf("%s\r\nHere's how to associate a time zone to a server role:", message)
-		message = fmt.Sprintf("%s\r\n```%sroletimezone Role Abbrev\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n       Role: Server role to which time zone should be linked", message)
-		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation provided when '%saddtimezone' command was issued", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s```", message)
-	default:
-		message = fmt.Sprintf("%s\r\nWait! What? Are you having me on? I don't know anything about %s", message, command[1])
-		message = fmt.Sprintf("%s\r\nEventsBot is not amused :expressionless:", message)
-	}
-
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
