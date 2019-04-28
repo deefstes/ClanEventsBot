@@ -30,7 +30,7 @@ type DevelopingEvent struct {
 
 // ShowDevelopingEvent is used to display the progress of an interactive new event
 //func ShowDevelopingEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, newEvent DevelopingEvent) {
-func ShowDevelopingEvent(s *discordgo.Session, channel string, newEvent DevelopingEvent) {
+func ShowDevelopingEvent(s *discordgo.Session, m *discordgo.MessageCreate, channel string, newEvent DevelopingEvent) {
 	message := ""
 
 	// Get channel
@@ -120,10 +120,10 @@ func ShowDevelopingEvent(s *discordgo.Session, channel string, newEvent Developi
 			message = fmt.Sprintf("%s\r\n ◀ = Less than %d0", message, newEvent.Event.TeamSize/10)
 			message = fmt.Sprintf("%s\r\n ▶ = More than %d9", message, newEvent.Event.TeamSize/10)
 		}
-		message = fmt.Sprintf("%s\r\n👍 = Continue", message)
+		//message = fmt.Sprintf("%s\r\n👍 = Continue", message)
 		message = fmt.Sprintf("%s\r\n❌ = Cancel", message)
 	case stateDone:
-		EditEvent(s, channel, newEvent.MessageID, "")
+		EditEvent(s, m, channel, newEvent.MessageID, "")
 		return
 		// message = fmt.Sprintf("%s\r\n✅ = OK", message)
 		// message = fmt.Sprintf("%s\r\n❌ = Cancel", message)
@@ -195,7 +195,7 @@ func ShowDevelopingEvent(s *discordgo.Session, channel string, newEvent Developi
 		s.MessageReactionAdd(channel, newEvent.MessageID, EmojiEight)
 		s.MessageReactionAdd(channel, newEvent.MessageID, EmojiNine)
 		s.MessageReactionAdd(channel, newEvent.MessageID, "▶")
-		s.MessageReactionAdd(channel, newEvent.MessageID, "👍")
+		//s.MessageReactionAdd(channel, newEvent.MessageID, "👍")
 		s.MessageReactionAdd(channel, newEvent.MessageID, "❌")
 	case stateDone:
 		s.MessageReactionAdd(channel, newEvent.MessageID, "✅")
@@ -247,7 +247,11 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 		case "⏬":
 			event.Event.DateTime = event.Event.DateTime.AddDate(0, -1, 0)
 		case "👍":
-			event.State = stateTime
+			if event.Committed {
+				event.State = stateDone
+			} else {
+				event.State = stateTime
+			}
 		case "❌":
 			delete(gv.escrowEvents, m.MessageID)
 			s.ChannelMessageDelete(m.MessageReaction.ChannelID, m.MessageID)
@@ -264,7 +268,11 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 		case "⏩":
 			event.Event.DateTime = event.Event.DateTime.Add(1 * time.Hour)
 		case "👍":
-			event.State = stateTimeZone
+			if event.Committed {
+				event.State = stateDone
+			} else {
+				event.State = stateTimeZone
+			}
 		case "❌":
 			delete(gv.escrowEvents, m.MessageID)
 			s.ChannelMessageDelete(m.MessageReaction.ChannelID, m.MessageID)
@@ -281,7 +289,11 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 			event.Event.TimeZone = timezone.Abbrev
 			location, _ := time.LoadLocation(timezone.Location)
 			event.Event.DateTime = time.Date(dtyr, dtmo, dtda, dtho, dtmi, 0, 0, location)
-			event.State = stateDuration
+			if event.Committed {
+				event.State = stateDone
+			} else {
+				event.State = stateDuration
+			}
 		}
 		if m.MessageReaction.Emoji.Name == "❌" {
 			delete(gv.escrowEvents, m.MessageID)
@@ -289,7 +301,11 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 			return
 		}
 	case stateDuration:
-		event.State = stateTeamSize
+		if event.Committed {
+			event.State = stateDone
+		} else {
+			event.State = stateTeamSize
+		}
 		switch m.MessageReaction.Emoji.Name {
 		case EmojiOne:
 			event.Event.Duration = 1
@@ -317,6 +333,7 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 			event.State = stateDuration
 		}
 	case stateTeamSize:
+		event.State = stateDone
 		baseSize := (event.Event.TeamSize / 10) * 10
 		switch m.MessageReaction.Emoji.Name {
 		case EmojiZero:
@@ -346,14 +363,18 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 					event.Event.TeamSize = 1
 				}
 			}
+			event.State = stateTeamSize
 		case "▶":
 			event.Event.TeamSize = baseSize + 10
-		case "👍":
-			event.State = stateDone
+			event.State = stateTeamSize
+		//case "👍":
+		//	event.State = stateDone
 		case "❌":
 			delete(gv.escrowEvents, m.MessageID)
 			s.ChannelMessageDelete(m.MessageReaction.ChannelID, m.MessageID)
 			return
+		default:
+			event.State = stateTeamSize
 		}
 	case stateDone:
 		switch m.MessageReaction.Emoji.Name {
@@ -379,7 +400,7 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 
 	gv.escrowEvents[m.MessageID] = event
 
-	ShowDevelopingEvent(s, m.MessageReaction.ChannelID, event)
+	ShowDevelopingEvent(s, nil, m.MessageReaction.ChannelID, event)
 }
 
 // CommitEvent is used to move an event from Escrow to the DB
@@ -399,24 +420,34 @@ func CommitEvent(s *discordgo.Session, channelID string, newEvent DevelopingEven
 	}
 
 	collection := mongoSession.DB(fmt.Sprintf("ClanEvents%s", guild.ID)).C("Events")
-	err = collection.Insert(newEvent.Event)
+	_, err = collection.Upsert(bson.M{"eventId": newEvent.Event.EventID}, newEvent.Event)
 	if err != nil {
 		s.ChannelMessageSend(channelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
-	message := fmt.Sprintf("Woohoo! A new event has been created by %s. EventsBot is most pleased :ok_hand:", newEvent.Event.Creator.Mention())
-	message = fmt.Sprintf("%s\r\nEvent ID: **%s**", message, newEvent.Event.EventID)
-	message = fmt.Sprintf("%s\r\n\r\nTo sign up for this event, type the following:", message)
-	message = fmt.Sprintf("%s\r\n```%ssignup %s```", message, config.CommandPrefix, newEvent.Event.EventID)
-	s.ChannelMessageSend(channelID, message)
+	if !newEvent.Committed {
+		message := fmt.Sprintf("Woohoo! A new event has been created by %s. EventsBot is most pleased :ok_hand:", newEvent.Event.Creator.Mention())
+		message = fmt.Sprintf("%s\r\nEvent ID: **%s**", message, newEvent.Event.EventID)
+		message = fmt.Sprintf("%s\r\n\r\nTo sign up for this event, type the following:", message)
+		message = fmt.Sprintf("%s\r\n```%ssignup %s```", message, config.CommandPrefix, newEvent.Event.EventID)
+		s.ChannelMessageSend(channelID, message)
 
-	signupCmd := []string{"signup", newEvent.Event.EventID}
-	Signup(guild, s, newEvent.TriggerMessage, signupCmd)
+		signupCmd := []string{"signup", newEvent.Event.EventID}
+		Signup(guild, s, newEvent.TriggerMessage, signupCmd)
+	} else {
+		message := fmt.Sprintf("Yeah boi! %s has successfully modified event %s. EventsBot is impressed :ok_hand:", newEvent.Event.Creator.Mention(), newEvent.Event.EventID)
+		s.ChannelMessageSend(channelID, message)
+
+		detailsCmd := []string{"details", newEvent.Event.EventID}
+		Details(guild, s, newEvent.TriggerMessage, detailsCmd)
+	}
 }
 
 // EditEvent is used to change the details of an event
-func EditEvent(s *discordgo.Session, channelID string, messageID string, eventID string) {
+func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID string, messageID string, eventID string) {
+
+	var developingEvent DevelopingEvent
 
 	// Get channel
 	c, err := s.Channel(channelID)
@@ -433,8 +464,6 @@ func EditEvent(s *discordgo.Session, channelID string, messageID string, eventID
 	_, ok = gv.escrowEvents[messageID]
 	if !ok {
 		// If no event is found in escrow for the specified message, it could mean that it's referring to an event already in the db and needs to be pulled from there
-
-		// Find event in DB
 		c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", c.GuildID)).C("Events")
 
 		var event ClanEvent
@@ -445,13 +474,16 @@ func EditEvent(s *discordgo.Session, channelID string, messageID string, eventID
 		}
 
 		newEvent := DevelopingEvent{
-			TriggerMessage: nil,
+			TriggerMessage: m,
+			MessageID:      messageID,
 			State:          stateDone,
 			Event:          event,
+			Committed:      true,
 		}
 		gv.escrowEvents[messageID] = newEvent
+		developingEvent = newEvent
 	}
-	developingEvent, ok := gv.escrowEvents[messageID]
+	developingEvent, _ = gv.escrowEvents[messageID]
 
 	// Get time zone
 	tzInfo := ""
@@ -487,6 +519,16 @@ func EditEvent(s *discordgo.Session, channelID string, messageID string, eventID
 	message = fmt.Sprintf("%s\r\n⏳ = Change Duration", message)
 	message = fmt.Sprintf("%s\r\n👬 = Change Team Size", message)
 
+	// Post or update message
+	if messageID == "" {
+		newMsg, _ := s.ChannelMessageSend(channelID, message)
+		messageID = newMsg.ID
+		gv.escrowEvents[newMsg.ID] = developingEvent
+	} else {
+		s.ChannelMessageEdit(channelID, messageID, "")
+		s.ChannelMessageEdit(channelID, messageID, message)
+	}
+
 	// Add appliccable reactions
 	s.MessageReactionsRemoveAll(channelID, developingEvent.MessageID)
 	s.MessageReactionAdd(channelID, developingEvent.MessageID, "✅")
@@ -496,8 +538,4 @@ func EditEvent(s *discordgo.Session, channelID string, messageID string, eventID
 	s.MessageReactionAdd(channelID, developingEvent.MessageID, "🌍")
 	s.MessageReactionAdd(channelID, developingEvent.MessageID, "⏳")
 	s.MessageReactionAdd(channelID, developingEvent.MessageID, "👬")
-
-	// Post or update message
-	s.ChannelMessageEdit(channelID, messageID, "")
-	s.ChannelMessageEdit(channelID, messageID, message)
 }

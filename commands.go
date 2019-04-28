@@ -414,7 +414,7 @@ func New(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, c
 		Event:          event,
 	}
 
-	ShowDevelopingEvent(s, m.ChannelID, newEvent)
+	ShowDevelopingEvent(s, m, m.ChannelID, newEvent)
 }
 
 // NewEvent is used to create a new event with all values provided up front
@@ -626,7 +626,7 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 	}
 
 	newMsg, _ := s.ChannelMessageSend(m.ChannelID, "EDIT EVENT")
-	EditEvent(s, m.ChannelID, newMsg.ID, strings.ToUpper(command[1]))
+	EditEvent(s, m, m.ChannelID, newMsg.ID, strings.ToUpper(command[1]))
 }
 
 // CancelEvent is used to delete a specified event
