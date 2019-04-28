@@ -28,6 +28,7 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s\r\n    %snew", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %snewevent", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %scancelevent", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %sedit", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %ssignup", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %sleave", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %swisdom", message, config.CommandPrefix)
@@ -584,7 +585,7 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 	// Test for correct number of arguments
 	if len(command) != 2 {
 		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
-		message = fmt.Sprintf("%s\r\nFor help with cancelling an event, type the following:\r\n```%shelp cancelevent```", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\nFor help with editing an event, type the following:\r\n```%shelp edit```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}

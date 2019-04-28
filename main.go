@@ -178,6 +178,14 @@ func constructTZMaps(tzs []TimeZone) (tzBA map[string]TimeZone, tzBE map[string]
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "%+v", r)
+			message := fmt.Sprintf("Well this is embarrasing :flushed:.")
+			message = fmt.Sprintf("%s\r\nSomething went wrong and I don't know what it is. We shall never speak of this again.", message)
+			sendMessage(m.ChannelID, message)
+		}
+	}()
 
 	// Ignore all messages created by the bot itself
 	if m.Author.ID == s.State.User.ID {
