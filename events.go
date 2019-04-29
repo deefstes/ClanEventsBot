@@ -33,6 +33,7 @@ type ClanUser struct {
 	DateTime           time.Time `bson:"dateTime" json:"dateTime"`
 }
 
+// DisplayName returns the user's nickname or username if the former is empty
 func (c ClanUser) DisplayName() string {
 	if c.Nickname != "" {
 		return c.Nickname
@@ -41,6 +42,7 @@ func (c ClanUser) DisplayName() string {
 	return c.UserName
 }
 
+// Mention returns the user's Discord mention name
 func (c ClanUser) Mention() string {
 	if c.Mention_deprecated != "" {
 		return c.Mention_deprecated
