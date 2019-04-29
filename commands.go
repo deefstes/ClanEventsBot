@@ -583,7 +583,7 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 	message := ""
 
 	// Test for correct number of arguments
-	if len(command) != 2 {
+	if len(command) < 2 {
 		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
 		message = fmt.Sprintf("%s\r\nFor help with editing an event, type the following:\r\n```%shelp edit```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
@@ -1033,21 +1033,7 @@ func Echo(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 
 // Test is used to simply check that the bot is online and responding
 func Test(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-	t := time.Now()
-	//newid, _ := baseconv.Encode36FromDec(time.Now().Format("05041502")) // Convert the current DateTime in reverse order of significance (ssmmHHDDMMYY) to Base62
-	//newid = strings.ToUpper(newid)
-	newid := getEventID(t)
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s", newid))
-
-	fmt.Printf("%s - %s\r\n", t.Format("02 15 04 05"), getEventID(t))
-	fmt.Printf("%s - %s\r\n", t.Add(1*time.Second).Format("02 15 04 05"), getEventID(t.Add(1*time.Second)))
-	fmt.Printf("%s - %s\r\n", t.Add(2*time.Second).Format("02 15 04 05"), getEventID(t.Add(2*time.Second)))
-	fmt.Printf("%s - %s\r\n", t.Add(3*time.Second).Format("02 15 04 05"), getEventID(t.Add(3*time.Second)))
-	fmt.Printf("%s - %s\r\n", t.Add(4*time.Second).Format("02 15 04 05"), getEventID(t.Add(4*time.Second)))
-	fmt.Printf("%s - %s\r\n", t.Add(5*time.Second).Format("02 15 04 05"), getEventID(t.Add(5*time.Second)))
-	fmt.Printf("%s - %s\r\n", t.Add(6*time.Second).Format("02 15 04 05"), getEventID(t.Add(6*time.Second)))
-	fmt.Printf("%s - %s\r\n", time.Date(2018, time.July, 01, 0, 0, 0, 0, time.UTC).Format("02 15 04 05"), getEventID(time.Date(2018, time.July, 01, 0, 0, 0, 0, time.UTC)))
-	fmt.Printf("%s - %s\r\n", time.Date(2018, time.July, 31, 23, 59, 59, 0, time.UTC).Format("02 15 04 05"), getEventID(time.Date(2018, time.July, 31, 23, 59, 59, 0, time.UTC)))
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot (Build Number %s) has been running since %s with DebugLevel=%d", buildNumber, liveTime.Format("2006/01/02 15:04:05"), config.DebugLevel))
 }
 
 // Wisdom is used to deliver a nugget of wisdom

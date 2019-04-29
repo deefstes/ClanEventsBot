@@ -20,6 +20,7 @@ import (
 
 var (
 	buildNumber     string
+	liveTime        time.Time
 	config          Configuration
 	mongoSession    *mgo.Session
 	discordSession  *discordgo.Session
@@ -47,9 +48,8 @@ func main() {
 		buildNumber = "N/A"
 	}
 
+	liveTime = time.Now()
 	guildVars = make(map[string]*GuildVars)
-	//escrowEvents = make(map[string]DevelopingEvent)
-
 	var err error
 
 	// Read config file
