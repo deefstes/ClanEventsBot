@@ -252,7 +252,6 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 	if len(results) == 0 {
 		reply = fmt.Sprintf("%sZip. Nothing. Nada.\r\nWhat nonsense is this? EventsBot does not approve :frowning2:", reply)
 	} else {
-		reply = fmt.Sprintf("%s```", reply)
 		for _, event := range results {
 			tzInfo := ""
 			eventLocation := defaultLocation
@@ -261,45 +260,52 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 				eventLocation, _ = time.LoadLocation(tzLookup[event.TimeZone].Location)
 			}
 			freeSpace := event.TeamSize - len(event.Participants)
-			//reply = fmt.Sprintf("%s%8v: %s%s - %s", reply, event.EventID, event.DateTime.In(defaultLocation).Format("Mon 02/01 15:04"), tzInfo, event.Name)
-			reply = fmt.Sprintf("%s%8v: %s%s - %s", reply, event.EventID, event.DateTime.In(eventLocation).Format("Mon 02/01 15:04"), tzInfo, event.Name)
+			curEvent := fmt.Sprintf("```%8v: %s%s - %s", event.EventID, event.DateTime.In(eventLocation).Format("Mon 02/01 15:04"), tzInfo, event.Name)
 
 			// Add players to message
 			if len(event.Participants) > 0 {
-				reply = fmt.Sprintf("%s\r\n Players:", reply)
+				curEvent = fmt.Sprintf("%s\r\n Players:", curEvent)
 
 				for _, participant := range event.Participants {
-					reply = fmt.Sprintf("%s %s,", reply, participant.DisplayName())
+					curEvent = fmt.Sprintf("%s %s,", curEvent, participant.DisplayName())
 				}
 				// Remove trailing comma
-				reply = fmt.Sprintf("%s", strings.TrimSuffix(reply, ","))
+				curEvent = fmt.Sprintf("%s", strings.TrimSuffix(curEvent, ","))
 			}
 
 			// Add reserves to message
 			if len(event.Reserves) > 0 {
-				reply = fmt.Sprintf("%s\r\nReserves:", reply)
+				curEvent = fmt.Sprintf("%s\r\nReserves:", curEvent)
 
 				for _, reserve := range event.Reserves {
-					reply = fmt.Sprintf("%s %s,", reply, reserve.DisplayName())
+					curEvent = fmt.Sprintf("%s %s,", curEvent, reserve.DisplayName())
 				}
 				// Remove trailing comma
-				reply = fmt.Sprintf("%s", strings.TrimSuffix(reply, ","))
+				curEvent = fmt.Sprintf("%s", strings.TrimSuffix(curEvent, ","))
 			}
 
 			// Add status to message
-			reply = fmt.Sprintf("%s\r\n  Status: ", reply)
+			curEvent = fmt.Sprintf("%s\r\n  Status: ", curEvent)
 			switch freeSpace {
 			case 0:
-				reply = fmt.Sprintf("%sFULL", reply)
+				curEvent = fmt.Sprintf("%sFULL", curEvent)
 			case 1:
-				reply = fmt.Sprintf("%s1 Space", reply)
+				curEvent = fmt.Sprintf("%s1 Space", curEvent)
 			default:
-				reply = fmt.Sprintf("%s%d Spaces", reply, freeSpace)
+				curEvent = fmt.Sprintf("%s%d Spaces", curEvent, freeSpace)
 			}
 
-			reply = fmt.Sprintf("%s\r\n----------------------------------------\r\n", reply)
+			curEvent = fmt.Sprintf("%s```", curEvent)
+
+			// Ensure that the message don't grow to over 2000 characters. If it does, post it as is and begin a new one for the rest of the events
+			if len(reply)+len(curEvent) > 1980 {
+				s.ChannelMessageSend(m.ChannelID, reply)
+
+				reply = ""
+			}
+
+			reply = fmt.Sprintf("%s%s", reply, curEvent)
 		}
-		reply = fmt.Sprintf("%s```", reply)
 	}
 
 	s.ChannelMessageSend(m.ChannelID, reply)
