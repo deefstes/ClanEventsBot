@@ -135,7 +135,7 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s\r\n```%saddtimezone Abbrev Location [Emoji]\r\n", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n     Abbrev: Abbreviation to be used for this time zone (ie. ET, CT, etc.)", message)
 		message = fmt.Sprintf("%s\r\n   Location: A location that represents the time zone (conforms to the tz database naming convention)", message)
-		message = fmt.Sprintf("%s\r\n      Emoji: A hex representation of a unicode character for the emoji representing the time zone. This value is optional", message)
+		message = fmt.Sprintf("%s\r\n      Emoji: A server emoji representing the time zone. This value is optional", message)
 		message = fmt.Sprintf("%s\r\n\r\nNote: For more information on the tz database naming convention, see https://en.wikipedia.org/wiki/Tz_database", message)
 		message = fmt.Sprintf("%s\r\n\r\nNote: EventsBot automatically adjusts times based on the specified location's Daylight Saving convention.", message)
 		message = fmt.Sprintf("%s```", message)
