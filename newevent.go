@@ -59,6 +59,13 @@ func ShowDevelopingEvent(s *discordgo.Session, m *discordgo.MessageCreate, chann
 		}
 		tzInfo = tz.Abbrev
 		eventLocation, _ = time.LoadLocation(tz.Location)
+	} else {
+		if len(gv.timezones) == 1 {
+			tz := gv.timezones[0]
+			tzInfo = tz.Abbrev
+			newEvent.Event.TimeZone = tz.Abbrev
+			eventLocation, _ = time.LoadLocation(tz.Location)
+		}
 	}
 
 	// Construct message
@@ -271,7 +278,11 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 			if event.Committed {
 				event.State = stateDone
 			} else {
-				event.State = stateTimeZone
+				if event.Event.TimeZone != "" {
+					event.State = stateDuration
+				} else {
+					event.State = stateTimeZone
+				}
 			}
 		case "❌":
 			delete(gv.escrowEvents, m.MessageID)

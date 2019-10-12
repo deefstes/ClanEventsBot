@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bwmarrin/discordgo"
 	mgo "gopkg.in/mgo.v2"
@@ -60,7 +61,7 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s\r\n       Name: A name for your event.", message)
 		message = fmt.Sprintf("%s```", message)
 		message = fmt.Sprintf("%s\r\n\r\nHere's an example for you:", message)
-		message = fmt.Sprintf("%s\r\n```%snew Last Wish Training Raid", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n```%snew Last Wish Training Raid```", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\nThis will create an event named \"Last Wish Training Raid\" and the bot will prompt you for the remaining values required.", message)
 	case "newevent":
 		message = fmt.Sprintf("%s\r\nHere's how to create a new event (explicit mode):", message)
@@ -1220,6 +1221,14 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
+	if len(command) > 3 {
+		if len(command[3]) != 8 || utf8.RuneCountInString(command[3]) != 2 {
+			message = fmt.Sprintf("Huh? What kind of an emoji is that. Pick somethign better please :expressionless:")
+			message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
+			s.ChannelMessageSend(m.ChannelID, message)
+
+		}
+	}
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
@@ -1243,7 +1252,7 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	newTZ.Abbrev = command[1]
 	newTZ.Location = command[2]
 	if len(command) > 3 {
-		newTZ.Emoji = command[3]
+		newTZ.Emoji = fmt.Sprintf("%X", []byte(command[3]))
 	}
 
 	newLoc, err := time.LoadLocation(newTZ.Location)
@@ -1265,6 +1274,7 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	}
 
 	gv.timezones = append(gv.timezones, newTZ)
+
 	tzBA, tzBE := constructTZMaps(gv.timezones)
 	gv.tzByAbbr = tzBA
 	gv.tzByEmoji = tzBE
