@@ -1549,8 +1549,21 @@ func hasRole(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		}
 	}
 	found := false
-	for _, role := range getRoles(g, m) {
-		if role.ID == roleID {
+	// for _, role := range getRoles(g, m) {
+	// 	if role.ID == roleID {
+	// 		found = true
+	// 		break
+	// 	}
+	// }
+
+	// return found
+	member, err := s.GuildMember(g.ID, m.Author.ID)
+	if err != nil {
+		return false
+	}
+
+	for _, memrole := range member.Roles {
+		if memrole == roleID {
 			found = true
 			break
 		}

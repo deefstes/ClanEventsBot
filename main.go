@@ -88,6 +88,16 @@ func main() {
 	}
 	defer discordSession.Close()
 
+	discordSession.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsGuilds | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions)
+
+	// for _, guild := range guilds {
+	// 	members, _ := discordSession.GuildMembers(guild.ID, "", 1000)
+	// 	for _, member := range members {
+	// 		m, _ := discordSession.GuildMember(guild.ID, member.User.ID)
+	// 		fmt.Printf("%s: %s\r\n", guild.Name, m.User.Username)
+	// 	}
+	// }
+
 	// Set up a ticker that triggers a service routine every n minutes
 	ticker := time.NewTicker(time.Minute * config.ServiceTimer)
 	defer ticker.Stop()
