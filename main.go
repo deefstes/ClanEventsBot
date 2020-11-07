@@ -246,6 +246,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		AddNaughty(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "removenaughtylist ") {
 		RemoveNaughty(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "naughtylist ") {
+		ListNaughty(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "addserver") {
 		AddServer(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "addtimezone ") {

@@ -1149,6 +1149,37 @@ func RemoveNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
+// ListNaughty is used to show the current naughty list
+func ListNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	message := ""
+
+	// Test for correct number of arguments
+	if len(command) != 1 {
+		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = fmt.Sprintf("%s\r\nFor help with displaying the naughty list, type the following:\r\n```%shelp naughtylist```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("NaughtyList")
+	var users []ClanUser
+	err := c.Find(bson.M{}).Sort("userName").All(&users)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the naughty list. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+
+	if len(users) == 0 {
+		message = fmt.Sprintf("Naughty list? What naughty list? There's no one on any naughty list. :man_shrugging:")
+	} else {
+		message = "Well... Ahem..."
+		for _, user := range users {
+			message = fmt.Sprintf("%s\r\n%s", message, user.Mention())
+		}
+	}
+	s.ChannelMessageSend(m.ChannelID, message)
+}
+
 // AddServer is used to register a Discord server for ClanEvents to be able to run service functions for that server
 func AddServer(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
