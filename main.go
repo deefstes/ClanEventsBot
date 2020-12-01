@@ -4,7 +4,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/signal"
 	"regexp"
@@ -403,7 +405,7 @@ func getInsultee(guildID string) (ClanUser, error) {
 	return insultee, nil
 }
 
-func getInsult(mention string) string {
+func getCanonicalInsult(mention string) string {
 	canon := []string{
 		fmt.Sprintf("%s is a stuck up, half-witted, scruffy-looking… Nerf herder!", mention),
 		fmt.Sprintf("%s's parents are living proof that two wrongs don't make a right.", mention),
@@ -443,6 +445,64 @@ func getInsult(mention string) string {
 
 	index := rand.Intn(len(canon))
 	return canon[index]
+}
+
+func getEvilInsult(mention string) string {
+	url := "https://evilinsult.com/generate_insult.php?lang=en&type=text"
+
+	var client http.Client
+	resp, err := client.Get(url)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return ""
+		}
+		bodyString := string(bodyBytes)
+		return fmt.Sprintf("%s, %s", mention, bodyString)
+	}
+
+	return ""
+}
+
+func getMattbasInsult(mention string) string {
+	url := "https://insult.mattbas.org/api/insult.txt?template=is+as+<adjective>+as+<article+target=adj1>+<adjective+min=1+max=1+id=adj1>+<amount>+of+<adjective+min=1+max=1>+<animal>+<animal_part>"
+
+	var client http.Client
+	resp, err := client.Get(url)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return ""
+		}
+		bodyString := string(bodyBytes)
+		return fmt.Sprintf("%s %s", mention, bodyString)
+	}
+
+	return ""
+}
+
+func getInsult(mention string) string {
+	source := rand.Intn(3)
+	switch source {
+	case 0: // Insult from local canon
+		return getCanonicalInsult(mention)
+	case 1: // Insult from https://evilinsult.com/api/?ref=public-apis
+		return getEvilInsult(mention)
+	case 2: // Insult from https://insult.mattbas.org/api/
+		return getMattbasInsult(mention)
+	}
+
+	return ""
 }
 
 func getEventID(t time.Time) string {
