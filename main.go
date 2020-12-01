@@ -234,6 +234,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		New(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "edit ") {
 		Edit(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "cancel ") {
+		CancelEvent(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "cancelevent ") {
 		CancelEvent(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "signup ") {
@@ -248,7 +250,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		Details(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "test") {
 		Test(guild, s, m, commandElements)
-	} else if strings.HasPrefix(command, "echo") {
+	} else if strings.HasPrefix(command, "say") || strings.HasPrefix(command, "echo") {
 		Echo(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "wisdom") {
 		Wisdom(guild, s, m, commandElements)
@@ -256,7 +258,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		AddNaughty(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "removenaughtylist ") {
 		RemoveNaughty(guild, s, m, commandElements)
-	} else if strings.HasPrefix(command, "naughtylist ") {
+	} else if strings.HasPrefix(command, "naughtylist") {
 		ListNaughty(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "addserver") {
 		AddServer(guild, s, m, commandElements)
