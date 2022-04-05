@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -16,18 +17,23 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/kenshaw/baseconv"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 var (
-	buildNumber     string
-	liveTime        time.Time
-	config          Configuration
-	mongoSession    *mgo.Session
+	buildNumber string
+	liveTime    time.Time
+	config      Configuration
+	//mongoSession    *mgo.Session
+	mongoClient     *mongo.Client
 	discordSession  *discordgo.Session
 	defaultLocation *time.Location
 	guildVars       map[string]*GuildVars
+	ErrNoRecords    = errors.New("no records")
 )
 
 type GuildVars struct {
@@ -64,18 +70,48 @@ func main() {
 	defaultLocation, _ = time.LoadLocation("Europe/London")
 
 	// Connect to MongoDB
-	mongoSession, err = mgo.Dial(config.MongoDB)
+	mongoClient, err = mongo.NewClient(options.Client().ApplyURI(config.MongoDB))
 	if err != nil {
 		panic(err)
 	}
-	defer mongoSession.Close()
 
-	c := mongoSession.DB("ClanEvents").C("Guilds")
-	var guilds []Guild
-	err = c.Find(bson.M{}).All(&guilds)
+	ctx := context.Background()
+	err = mongoClient.Connect(ctx)
 	if err != nil {
+		panic(fmt.Errorf("connecting to mongodb: %w", err))
+	}
+	defer mongoClient.Disconnect(ctx)
+
+	// Attempt connecting to the database 4 times to allow for network resources not yet being available due to system startup
+	interval := 15
+	for i := 0; i < 4; i++ {
+		fmt.Println("attempting db connection")
+		// ctx, c := context.WithTimeout(context.Background(), 10*time.Second)
+		// defer c()
+		err = mongoClient.Ping(ctx, readpref.Primary())
+		if err == nil {
+			break
+		} else {
+			fmt.Printf("db connection failed, waiting %d seconds\r\n", interval)
+			time.Sleep(time.Duration(interval) * time.Second)
+		}
+		interval = interval * 2 // Make interval between successive attempts longer
+	}
+	if err != nil {
+		panic(fmt.Errorf("unable to ping mongodb: %w", err))
+	}
+
+	var guilds []Guild
+	collection := mongoClient.Database("ClanEvents").Collection("Guilds")
+	cur, err := collection.Find(ctx, bson.D{})
+	if err != nil {
+		fmt.Printf("Error reading guilds: %v\r\n", err)
+	}
+	if err = cur.All(context.TODO(), &guilds); err != nil {
+		fmt.Printf("Error decoding guilds: %v\r\n", err)
+	}
+	if len(guilds) == 0 {
 		fmt.Printf("No registered guilds\r\n")
-		//return
 	}
 
 	for _, guild := range guilds {
@@ -136,27 +172,20 @@ func main() {
 
 func NewGuildVars(g Guild) *GuildVars {
 	ee := make(map[string]DevelopingEvent)
-	//tzBE := make(map[string]TimeZone)
-	//tzBA := make(map[string]TimeZone)
 
 	var tzs []TimeZone
-	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
-	err := ctz.Find(bson.M{}).Sort("abbrev").All(&tzs)
-	if err != nil {
-		panic(err)
-	}
+	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
 
-	//for _, timezone := range tzs {
-	//	tzBA[timezone.Abbrev] = timezone
-	//	if timezone.Emoji != "" {
-	//		bytearray, err := hex.DecodeString(timezone.Emoji)
-	//		if err != nil {
-	//			panic(err)
-	//		}
-	//		emojistr := string(bytearray[:len(bytearray)])
-	//		tzBE[emojistr] = timezone
-	//	}
-	//}
+	sortopts := options.Find().SetSort(bson.D{{"abbrev", 1}})
+	cur, err := ctz.Find(context.Background(), bson.D{}, sortopts)
+	if err != nil {
+		fmt.Printf("Error reading timezones: %v\r\n", err)
+		return nil
+	}
+	if err = cur.All(context.TODO(), &tzs); err != nil {
+		fmt.Printf("Error reading timezones: %v\r\n", err)
+		return nil
+	}
 	tzBA, tzBE := constructTZMaps(tzs)
 
 	return &GuildVars{
@@ -296,12 +325,20 @@ func sendMessage(channelID string, message string) {
 }
 
 func serviceRoutine() {
-	c := mongoSession.DB("ClanEvents").C("Guilds")
+	c := mongoClient.Database("ClanEvents").Collection("Guilds")
 
 	var guilds []Guild
 
-	err := c.Find(bson.M{}).All(&guilds)
+	cur, err := c.Find(context.Background(), bson.D{})
 	if err != nil {
+		fmt.Printf("Error reading guilds: %v\r\n", err)
+		return
+	}
+	if err = cur.All(context.TODO(), &guilds); err != nil {
+		fmt.Printf("Error decoding guilds: %v\r\n", err)
+		return
+	}
+	if len(guilds) == 0 {
 		fmt.Printf("No registered guilds\r\n")
 		return
 	}
@@ -339,12 +376,17 @@ func archiveEvents(guildID string) {
 		"$ne": true,
 	}
 
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", guildID)).C("Events")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", guildID)).Collection("Events")
 
 	var results []ClanEvent
-	err := c.Find(filter).Sort("dateTime").All(&results)
+	sortopts := options.Find().SetSort(bson.D{{"dateTime", 1}})
+	cur, err := c.Find(context.Background(), filter, sortopts)
 	if err != nil {
-		fmt.Printf("Error archiving events on guild %s\r\n", guildID)
+		fmt.Printf("Error reading unarchived events on guild %s: %v\r\n", guildID, err)
+		return
+	}
+	if err = cur.All(context.TODO(), &results); err != nil {
+		fmt.Printf("Error decoding unarchived events on guild %s: %v\r\n", guildID, err)
 		return
 	}
 
@@ -352,9 +394,15 @@ func archiveEvents(guildID string) {
 		upsertfilter := bson.M{"eventId": event.EventID}
 		event.Archived = true
 		event.EventID = fmt.Sprintf("%s_%s", time.Now().Format("060102150405"), event.EventID)
-		_, err := c.Upsert(upsertfilter, event)
+		event.ObjectID = ""
+		_, err := c.ReplaceOne(
+			context.Background(),
+			upsertfilter,
+			event,
+			options.Replace().SetUpsert(true),
+		)
 		if err != nil {
-			fmt.Printf("Error archiving event %s on guild %s\r\n", event.EventID, guildID)
+			fmt.Printf("Error archiving event %s on guild %s: %v\r\n", event.EventID, guildID, err)
 			return
 		}
 	}
@@ -362,41 +410,53 @@ func archiveEvents(guildID string) {
 
 func deliverInsult(guildID string) {
 	// Find default channel and insultee in DB
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", guildID)).C("Config")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", guildID)).Collection("Config")
 	var config ClanConfig
-	err := c.Find(bson.M{}).One(&config)
+	rslt := c.FindOne(context.Background(), bson.D{})
+	if rslt.Err() == mongo.ErrNoDocuments {
+		return
+	}
+	if rslt.Err() != nil {
+		fmt.Printf("Error reading config for guild %s: %v", guildID, rslt.Err())
+		return
+	}
+	err := rslt.Decode(&config)
 	if err != nil {
-		fmt.Printf("Error delivering insult on guild %s\r\n", guildID)
+		fmt.Printf("Error decoding config for guild %s: %v", guildID, err)
 		return
 	}
 
 	prob := rand.Float32()
 	if prob <= config.InsultProbability {
 		insultee, err := getInsultee(guildID)
-		if err != nil {
+		if err == ErrNoRecords {
+			return
+		} else if err != nil {
 			fmt.Printf("Error delivering insult on guild %s\r\n", guildID)
 			return
 		}
 		message := getInsult(insultee.Mention())
-		sendMessage(config.DefaultChannel, message)
+		if message != "" {
+			sendMessage(config.DefaultChannel, message)
+		}
 	}
 }
 
 func getInsultee(guildID string) (ClanUser, error) {
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", guildID)).C("NaughtyList")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", guildID)).Collection("NaughtyList")
 
 	var insultees []ClanUser
 	var insultee ClanUser
 
-	err := c.Find(bson.M{}).All(&insultees)
+	cur, err := c.Find(context.Background(), bson.D{})
 	if err != nil {
-		fmt.Printf("Error finding someone on guild %s to insult\r\n", guildID)
-		return insultee, errors.New("No insultee found")
+		return insultee, fmt.Errorf("reading insultees: %w", err)
 	}
-
+	if err = cur.All(context.TODO(), &insultees); err != nil {
+		return insultee, fmt.Errorf("decoding insultees: %w", err)
+	}
 	if len(insultees) == 0 {
-		fmt.Printf("Error finding someone on guild %s to insult\r\n", guildID)
-		return insultee, errors.New("No insultee found")
+		return insultee, ErrNoRecords
 	}
 
 	index := rand.Intn(len(insultees))

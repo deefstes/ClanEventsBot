@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -9,8 +10,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/bwmarrin/discordgo"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // BotHelp is used to display a list of available commands or instructions on using a specified command
@@ -229,24 +231,39 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 		}
 	}
 
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
 
 	var results []ClanEvent
-	err := c.Find(filter).Sort("dateTime").All(&results)
+	sortopts := options.Find().SetSort(bson.D{{"dateTime", 1}})
+	cur, err := c.Find(context.Background(), bson.D{}, sortopts)
 	if err != nil {
+		fmt.Printf("Error reading events: %v\r\n", err)
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+	if err = cur.All(context.TODO(), &results); err != nil {
+		fmt.Printf("Error decoding events: %v\r\n", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
 	// Get all time zones
-	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
 	var tzs []TimeZone
 	tzLookup := make(map[string]TimeZone)
-	err = ctz.Find(bson.M{}).Sort("abbrev").All(&tzs)
+	sortopts = options.Find().SetSort(bson.D{{"abbrev", 1}})
+	cur, err = ctz.Find(context.Background(), bson.D{}, sortopts)
 	if err != nil {
+		fmt.Printf("Error reading timezones: %v\r\n", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
+	if err = cur.All(context.TODO(), &results); err != nil {
+		fmt.Printf("Error decoding timezones: %v\r\n", err)
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+
 	for _, tz := range tzs {
 		tzLookup[tz.Abbrev] = tz
 	}
@@ -335,11 +352,18 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	}
 
 	// Find event in DB
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
+	rslt := c.FindOne(context.Background(), bson.M{"eventId": command[1]})
+	if rslt.Err() != nil {
+		fmt.Printf("Error reading event: %v", rslt.Err())
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	}
+	err := rslt.Decode(&event)
 	if err != nil {
+		fmt.Printf("Error decoding event: %v", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	}
@@ -347,14 +371,22 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	// Get time zone
 	tzInfo := ""
 	eventLocation := defaultLocation
-	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
 	if event.TimeZone != "" {
 		var tz TimeZone
-		err = ctz.Find(bson.M{"abbrev": event.TimeZone}).One(&tz)
-		if err != nil {
+		rslt := ctz.FindOne(context.Background(), bson.M{"abbrev": event.TimeZone})
+		if rslt.Err() != nil {
+			fmt.Printf("Error reading timezone: %v", rslt.Err())
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:"))
 			return
 		}
+		err := rslt.Decode(&tz)
+		if err != nil {
+			fmt.Printf("Error decoding timezone: %v", err)
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:"))
+			return
+		}
+
 		tzInfo = tz.Abbrev
 		eventLocation, _ = time.LoadLocation(tz.Location)
 	}
@@ -483,10 +515,19 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		locAbbr = strings.TrimSuffix(locAbbr, ")")
 
 		// Check if timezone is known
-		ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+		ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
 		var tz TimeZone
-		err := ctz.Find(bson.M{"abbrev": locAbbr}).One(&tz)
-		if err != nil || tz.Location == "" {
+		rslt := ctz.FindOne(context.Background(), bson.M{"abbrev": locAbbr})
+		if rslt.Err() != nil {
+			fmt.Printf("Error reading timezone: %v", rslt.Err())
+			message = fmt.Sprintf("EventsBot doesn't know that %s time zone. Can we stick to time zones on earth please?", command[tzNdx])
+			message = fmt.Sprintf("%s\r\nTo see a list of available time zones, type the following:\r\n```%slisttimezones```", message, config.CommandPrefix)
+			s.ChannelMessageSend(m.ChannelID, message)
+			return
+		}
+		err := rslt.Decode(&tz)
+		if err != nil {
+			fmt.Printf("Error decoding timezone: %v", err)
 			message = fmt.Sprintf("EventsBot doesn't know that %s time zone. Can we stick to time zones on earth please?", command[tzNdx])
 			message = fmt.Sprintf("%s\r\nTo see a list of available time zones, type the following:\r\n```%slisttimezones```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
@@ -577,8 +618,8 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		Full:        false,
 	}
 
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
-	err = c.Insert(newEvent)
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
+	_, err = c.InsertOne(context.Background(), newEvent)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -618,11 +659,18 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 	}
 
 	// Find event in DB
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"eventId": strings.ToUpper(command[1])}).One(&event)
+	rslt := c.FindOne(context.Background(), bson.M{"eventId": command[1]})
+	if rslt.Err() != nil {
+		fmt.Printf("Error reading event: %v", rslt.Err())
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	}
+	err := rslt.Decode(&event)
 	if err != nil {
+		fmt.Printf("Error decoding event: %v", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	}
@@ -671,11 +719,18 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	}
 
 	// Find event in DB
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
+	rslt := c.FindOne(context.Background(), bson.M{"eventId": command[1]})
+	if rslt.Err() != nil {
+		fmt.Printf("Error reading event: %v", rslt.Err())
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	}
+	err := rslt.Decode(&event)
 	if err != nil {
+		fmt.Printf("Error decoding event: %v", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	}
@@ -696,7 +751,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	}
 
 	// Delete record
-	err = c.Remove(bson.M{"eventId": command[1]})
+	_, err = c.DeleteOne(context.Background(), bson.M{"eventId": command[1]})
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -763,11 +818,18 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 	}
 
 	// Find event in DB
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
+	rslt := c.FindOne(context.Background(), bson.M{"eventId": command[1]})
+	if rslt.Err() != nil {
+		fmt.Printf("Error reading event: %v", rslt.Err())
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	}
+	err := rslt.Decode(&event)
 	if err != nil {
+		fmt.Printf("Error decoding event: %v", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	}
@@ -849,8 +911,11 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 			s.ChannelMessageSend(m.ChannelID, message)
 		}
 	}
-	err = c.Update(bson.M{"eventId": command[1]}, event)
+
+	event.ObjectID = ""
+	_, err = c.ReplaceOne(context.Background(), bson.M{"eventId": command[1]}, event)
 	if err != nil {
+		fmt.Printf("error updating event: %v", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -901,11 +966,18 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	}
 
 	// Find event in DB
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
 
 	var event ClanEvent
-	err := c.Find(bson.M{"eventId": command[1]}).One(&event)
+	rslt := c.FindOne(context.Background(), bson.M{"eventId": command[1]})
+	if rslt.Err() != nil {
+		fmt.Printf("Error reading event: %v", rslt.Err())
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	}
+	err := rslt.Decode(&event)
 	if err != nil {
+		fmt.Printf("Error decoding event: %v", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	}
@@ -952,7 +1024,8 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 			event.Participants = append(event.Participants, reserve)
 			event.Reserves = append(event.Reserves[:0], event.Reserves[0+1:]...)
 
-			err = c.Update(bson.M{"eventId": command[1]}, event)
+			event.ObjectID = ""
+			_, err = c.ReplaceOne(context.Background(), bson.M{"eventId": command[1]}, event)
 			if err != nil {
 				s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 				return
@@ -989,7 +1062,8 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 		return
 	}
 
-	err = c.Update(bson.M{"eventId": command[1]}, event)
+	event.ObjectID = ""
+	_, err = c.ReplaceOne(context.Background(), bson.M{"eventId": command[1]}, event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -1095,9 +1169,14 @@ func AddNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 		return
 	}
 
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("NaughtyList")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("NaughtyList")
 	filter := bson.M{"userName": addUser.UserName}
-	_, err := c.Upsert(filter, addUser)
+	_, err := c.ReplaceOne(
+		context.Background(),
+		filter,
+		addUser,
+		options.Replace().SetUpsert(true),
+	)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to add %s to the naughty list. Sorry but EventsBot has no answers for you :cry:", addUser.DisplayName()))
 		return
@@ -1143,15 +1222,15 @@ func RemoveNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 		return
 	}
 
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("NaughtyList")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("NaughtyList")
 	filter := bson.M{"userName": removeUser.UserName}
-	info, err := c.RemoveAll(filter)
+	info, err := c.DeleteMany(context.Background(), filter)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the naughty list. Sorry but EventsBot has no answers for you :cry:", removeUser.DisplayName()))
 		return
 	}
 
-	if info.Removed > 0 {
+	if info.DeletedCount > 0 {
 		message = fmt.Sprintf("%s has been removed from the naughty list. Are we cool now? :kissing_heart:", removeUser.DisplayName())
 	} else {
 		message = fmt.Sprintf("What are you talking about? %s is not on the naughty list. :shrug:", removeUser.DisplayName())
@@ -1171,10 +1250,17 @@ func ListNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		return
 	}
 
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("NaughtyList")
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("NaughtyList")
 	var users []ClanUser
-	err := c.Find(bson.M{}).Sort("userName").All(&users)
+	sortopts := options.Find().SetSort(bson.D{{"userName", 1}})
+	cur, err := c.Find(context.Background(), bson.D{}, sortopts)
 	if err != nil {
+		fmt.Printf("Error reading users: %v\r\n", err)
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the naughty list. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+	if err = cur.All(context.TODO(), &users); err != nil {
+		fmt.Printf("Error decoding users: %v\r\n", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the naughty list. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -1210,37 +1296,47 @@ func AddServer(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCre
 		return
 	}
 
-	c1 := mongoSession.DB(fmt.Sprintf("ClanEvents")).C("Guilds")
+	c1 := mongoClient.Database(fmt.Sprintf("ClanEvents")).Collection("Guilds")
 	var guild Guild
 	guild.ID = g.ID
 	guild.Name = g.Name
 	filter := bson.M{"discordId": guild.ID}
-	_, err := c1.Upsert(filter, guild)
+	guild.ID = ""
+	_, err := c1.ReplaceOne(
+		context.Background(),
+		filter,
+		guild,
+		options.Replace().SetUpsert(true),
+	)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to register this server. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
-	c2 := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Config")
+	c2 := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Config")
 	var config ClanConfig
 	config.DefaultChannel = m.ChannelID
 	filter = bson.M{}
-	_, err = c2.Upsert(filter, config)
+	_, err = c2.ReplaceOne(
+		context.Background(),
+		filter,
+		config,
+		options.Replace().SetUpsert(true),
+	)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to register this server. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
-	c3 := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("Events")
-	index := mgo.Index{
-		Key:        []string{"eventId"},
-		Unique:     true,
-		DropDups:   true,
-		Background: true,
-		Sparse:     true,
+	c3 := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
+	index := mongo.IndexModel{
+		Keys: bson.M{
+			"eventId": 1,
+		},
+		Options: options.Index().SetUnique(true).SetBackground(true).SetSparse(true),
 	}
 
-	err = c3.EnsureIndex(index)
+	_, err = c3.Indexes().CreateOne(context.Background(), index)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to register this server. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -1307,8 +1403,8 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		return
 	}
 
-	c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
-	err = c.Insert(newTZ)
+	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
+	_, err = c.InsertOne(context.Background(), newTZ)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to add the time zone. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -1353,17 +1449,17 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 	}
 
 	// Remove time zone from TimeZones collection
-	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
 	filter := bson.M{"abbrev": command[1]}
-	info, err := ctz.RemoveAll(filter)
+	info, err := ctz.DeleteMany(context.Background(), filter)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the time zones. Sorry but EventsBot has no answers for you :cry:", command[1]))
 		return
 	}
 
 	// Remove all role time zones referencing this time zone from RoleTimeZones collection
-	crtz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("RoleTimeZones")
-	_, err = crtz.RemoveAll(filter)
+	crtz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("RoleTimeZones")
+	_, err = crtz.DeleteMany(context.Background(), filter)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the time zones. Sorry but EventsBot has no answers for you :cry:", command[1]))
 		return
@@ -1384,7 +1480,7 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 	gv.tzByAbbr = tzBA
 	gv.tzByEmoji = tzBE
 
-	if info.Removed > 0 {
+	if info.DeletedCount > 0 {
 		message = fmt.Sprintf("%s has been removed from the list of time zones. Your world just got smaller.", command[1])
 	} else {
 		message = fmt.Sprintf("Are you trying to glitch the universe? %s is not in the list of time zones. :shrug:", command[1])
@@ -1404,18 +1500,32 @@ func ListTimeZones(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 		return
 	}
 
-	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
+	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
 	var timezones []TimeZone
-	err := ctz.Find(bson.M{}).Sort("abbrev").All(&timezones)
+	sortopts := options.Find().SetSort(bson.D{{"abbrev", 1}})
+	cur, err := ctz.Find(context.Background(), bson.D{}, sortopts)
 	if err != nil {
+		fmt.Printf("Error reading timezones: %v\r\n", err)
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+	if err = cur.All(context.TODO(), &timezones); err != nil {
+		fmt.Printf("Error decoding timezones: %v\r\n", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
-	crtz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("RoleTimeZones")
+	crtz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("RoleTimeZones")
 	var roletzs []ServerRoleTimeZone
-	err = crtz.Find(bson.M{}).Sort("serverRole").All(&roletzs)
+	sortopts = options.Find().SetSort(bson.D{{"serverRole", 1}})
+	cur, err = crtz.Find(context.Background(), bson.D{}, sortopts)
 	if err != nil {
+		fmt.Printf("Error reading role timezones: %v\r\n", err)
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+	if err = cur.All(context.TODO(), &roletzs); err != nil {
+		fmt.Printf("Error decoding role timezones: %v\r\n", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -1492,9 +1602,9 @@ func RoleTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Message
 
 	// Check that the time zone exists
 	tz := command[2]
-	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
-	count, err := ctz.Find(bson.M{"abbrev": tz}).Count()
-	if err != nil || count == 0 {
+	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
+	rslt := ctz.FindOne(context.Background(), bson.M{"abbrev": tz})
+	if rslt.Err() != nil {
 		message = fmt.Sprintf("Say what? %s? EventsBot doesn't know any such time zone.", tz)
 		message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
@@ -1505,9 +1615,14 @@ func RoleTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Message
 	var srtz ServerRoleTimeZone
 	srtz.RoleName = roleName
 	srtz.Abbrev = tz
-	crtz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("RoleTimeZones")
+	crtz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("RoleTimeZones")
 	filter := bson.M{"serverRole": roleName}
-	_, err = crtz.Upsert(filter, srtz)
+	_, err := crtz.ReplaceOne(
+		context.Background(),
+		filter,
+		srtz,
+		options.Replace().SetUpsert(true),
+	)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to link the %s timezone to the %s server role. Sorry but EventsBot has no answers for you :cry:", srtz.Abbrev, srtz.RoleName))
 		return
@@ -1615,17 +1730,27 @@ func getLocation(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	retabbr := ""
 
 	// Start by getting all time zones and server role time zones
-	ctz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("TimeZones")
-	crtz := mongoSession.DB(fmt.Sprintf("ClanEvents%s", g.ID)).C("RoleTimeZones")
+	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
+	crtz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("RoleTimeZones")
 	var tzs []TimeZone
 	var roletzs []ServerRoleTimeZone
 	tzLookup := make(map[string]TimeZone)
-	err := ctz.Find(bson.M{}).Sort("abbrev").All(&tzs)
+
+	sortopts := options.Find().SetSort(bson.D{{"abbrev", 1}})
+	cur, err := ctz.Find(context.Background(), bson.D{}, sortopts)
 	if err != nil {
 		return retloc, retabbr
 	}
-	err = crtz.Find(bson.M{}).Sort("serverRole").All(&roletzs)
+	if err = cur.All(context.TODO(), &tzs); err != nil {
+		return retloc, retabbr
+	}
+
+	sortopts = options.Find().SetSort(bson.D{{"serverRole", 1}})
+	cur, err = crtz.Find(context.Background(), bson.D{}, sortopts)
 	if err != nil {
+		return retloc, retabbr
+	}
+	if err = cur.All(context.TODO(), &roletzs); err != nil {
 		return retloc, retabbr
 	}
 

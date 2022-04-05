@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"gopkg.in/mgo.v2/bson"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type EventState int
@@ -236,7 +239,7 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 		return
 	}
 
-	fmt.Println(fmt.Sprintf("%s reaction received for message %s", m.MessageReaction.Emoji.Name, event.MessageID))
+	fmt.Printf("%s reaction received for message %s", m.MessageReaction.Emoji.Name, event.MessageID)
 
 	// Respond to reaction based on state of developing event
 	switch event.State {
@@ -430,8 +433,14 @@ func CommitEvent(s *discordgo.Session, channelID string, newEvent DevelopingEven
 		return
 	}
 
-	collection := mongoSession.DB(fmt.Sprintf("ClanEvents%s", guild.ID)).C("Events")
-	_, err = collection.Upsert(bson.M{"eventId": newEvent.Event.EventID}, newEvent.Event)
+	collection := mongoClient.Database(fmt.Sprintf("ClanEvents%s", guild.ID)).Collection("Events")
+	newEvent.Event.ObjectID = ""
+	_, err = collection.ReplaceOne(
+		context.Background(),
+		bson.M{"eventId": newEvent.Event.EventID},
+		newEvent.Event,
+		options.Replace().SetUpsert(true),
+	)
 	if err != nil {
 		s.ChannelMessageSend(channelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -475,12 +484,23 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 	_, ok = gv.escrowEvents[messageID]
 	if !ok {
 		// If no event is found in escrow for the specified message, it could mean that it's referring to an event already in the db and needs to be pulled from there
-		c := mongoSession.DB(fmt.Sprintf("ClanEvents%s", c.GuildID)).C("Events")
+		collection := mongoClient.Database(fmt.Sprintf("ClanEvents%s", c.GuildID)).Collection("Events")
 
 		var event ClanEvent
-		err := c.Find(bson.M{"eventId": eventID}).One(&event)
-		if err != nil {
+		rslt := collection.FindOne(context.Background(), bson.M{"eventId": eventID})
+		if rslt.Err() == mongo.ErrNoDocuments {
 			s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. :grimacing:", eventID))
+			return
+		}
+		if rslt.Err() != nil {
+			fmt.Printf("error finding event %s on guild %s: %v", eventID, c.GuildID, rslt.Err())
+			s.ChannelMessageSend(channelID, ":scream::scream::scream:Something very weird happened when trying to edit this event. Sorry but EventsBot has no answers for you :cry:")
+			return
+		}
+		err := rslt.Decode(&config)
+		if err != nil {
+			fmt.Printf("error decoding event %s on guild %s: %v", eventID, c.GuildID, rslt.Err())
+			s.ChannelMessageSend(channelID, ":scream::scream::scream:Something very weird happened when trying to edit this event. Sorry but EventsBot has no answers for you :cry:")
 			return
 		}
 
