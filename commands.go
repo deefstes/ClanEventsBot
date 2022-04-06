@@ -11,6 +11,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -235,7 +236,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 
 	var results []ClanEvent
 	sortopts := options.Find().SetSort(bson.D{{"dateTime", 1}})
-	cur, err := c.Find(context.Background(), bson.D{}, sortopts)
+	cur, err := c.Find(context.Background(), filter, sortopts)
 	if err != nil {
 		fmt.Printf("Error reading events: %v\r\n", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
@@ -258,7 +259,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
-	if err = cur.All(context.TODO(), &results); err != nil {
+	if err = cur.All(context.TODO(), &tzs); err != nil {
 		fmt.Printf("Error decoding timezones: %v\r\n", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -912,7 +913,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 		}
 	}
 
-	event.ObjectID = ""
+	event.ObjectID = primitive.NilObjectID
 	_, err = c.ReplaceOne(context.Background(), bson.M{"eventId": command[1]}, event)
 	if err != nil {
 		fmt.Printf("error updating event: %v", err)
@@ -1024,7 +1025,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 			event.Participants = append(event.Participants, reserve)
 			event.Reserves = append(event.Reserves[:0], event.Reserves[0+1:]...)
 
-			event.ObjectID = ""
+			event.ObjectID = primitive.NilObjectID
 			_, err = c.ReplaceOne(context.Background(), bson.M{"eventId": command[1]}, event)
 			if err != nil {
 				s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
@@ -1062,7 +1063,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 		return
 	}
 
-	event.ObjectID = ""
+	event.ObjectID = primitive.NilObjectID
 	_, err = c.ReplaceOne(context.Background(), bson.M{"eventId": command[1]}, event)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")

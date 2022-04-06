@@ -7,6 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -434,7 +435,7 @@ func CommitEvent(s *discordgo.Session, channelID string, newEvent DevelopingEven
 	}
 
 	collection := mongoClient.Database(fmt.Sprintf("ClanEvents%s", guild.ID)).Collection("Events")
-	newEvent.Event.ObjectID = ""
+	newEvent.Event.ObjectID = primitive.NilObjectID
 	_, err = collection.ReplaceOne(
 		context.Background(),
 		bson.M{"eventId": newEvent.Event.EventID},
@@ -497,7 +498,7 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 			s.ChannelMessageSend(channelID, ":scream::scream::scream:Something very weird happened when trying to edit this event. Sorry but EventsBot has no answers for you :cry:")
 			return
 		}
-		err := rslt.Decode(&config)
+		err := rslt.Decode(&event)
 		if err != nil {
 			fmt.Printf("error decoding event %s on guild %s: %v", eventID, c.GuildID, rslt.Err())
 			s.ChannelMessageSend(channelID, ":scream::scream::scream:Something very weird happened when trying to edit this event. Sorry but EventsBot has no answers for you :cry:")

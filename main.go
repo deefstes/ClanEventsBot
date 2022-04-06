@@ -19,16 +19,16 @@ import (
 	"github.com/kenshaw/baseconv"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 var (
-	buildNumber string
-	liveTime    time.Time
-	config      Configuration
-	//mongoSession    *mgo.Session
+	buildNumber     string
+	liveTime        time.Time
+	config          Configuration
 	mongoClient     *mongo.Client
 	discordSession  *discordgo.Session
 	defaultLocation *time.Location
@@ -394,7 +394,7 @@ func archiveEvents(guildID string) {
 		upsertfilter := bson.M{"eventId": event.EventID}
 		event.Archived = true
 		event.EventID = fmt.Sprintf("%s_%s", time.Now().Format("060102150405"), event.EventID)
-		event.ObjectID = ""
+		event.ObjectID = primitive.NilObjectID
 		_, err := c.ReplaceOne(
 			context.Background(),
 			upsertfilter,
@@ -426,7 +426,7 @@ func deliverInsult(guildID string) {
 		return
 	}
 
-	prob := rand.Float32()
+	prob := rand.Float64()
 	if prob <= config.InsultProbability {
 		insultee, err := getInsultee(guildID)
 		if err == ErrNoRecords {
