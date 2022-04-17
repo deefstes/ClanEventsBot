@@ -1,15 +1,11 @@
 package main
 
 import (
-	"context"
+	"ClanEventsBot/database"
 	"fmt"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type EventState int
@@ -28,7 +24,7 @@ type DevelopingEvent struct {
 	MessageID      string
 	TriggerMessage *discordgo.MessageCreate
 	State          EventState
-	Event          ClanEvent
+	Event          database.ClanEvent
 	Committed      bool
 }
 
@@ -434,14 +430,7 @@ func CommitEvent(s *discordgo.Session, channelID string, newEvent DevelopingEven
 		return
 	}
 
-	collection := mongoClient.Database(fmt.Sprintf("ClanEvents%s", guild.ID)).Collection("Events")
-	newEvent.Event.ObjectID = primitive.NilObjectID
-	_, err = collection.ReplaceOne(
-		context.Background(),
-		bson.M{"eventId": newEvent.Event.EventID},
-		newEvent.Event,
-		options.Replace().SetUpsert(true),
-	)
+	err = db.UpdateEvent(channel.GuildID, newEvent.Event)
 	if err != nil {
 		s.ChannelMessageSend(channelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -485,22 +474,12 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 	_, ok = gv.escrowEvents[messageID]
 	if !ok {
 		// If no event is found in escrow for the specified message, it could mean that it's referring to an event already in the db and needs to be pulled from there
-		collection := mongoClient.Database(fmt.Sprintf("ClanEvents%s", c.GuildID)).Collection("Events")
-
-		var event ClanEvent
-		rslt := collection.FindOne(context.Background(), bson.M{"eventId": eventID})
-		if rslt.Err() == mongo.ErrNoDocuments {
+		event, err := db.GetEvent(c.GuildID, eventID)
+		if err == ErrNoRecords {
 			s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. :grimacing:", eventID))
 			return
-		}
-		if rslt.Err() != nil {
-			fmt.Printf("error finding event %s on guild %s: %v", eventID, c.GuildID, rslt.Err())
-			s.ChannelMessageSend(channelID, ":scream::scream::scream:Something very weird happened when trying to edit this event. Sorry but EventsBot has no answers for you :cry:")
-			return
-		}
-		err := rslt.Decode(&event)
-		if err != nil {
-			fmt.Printf("error decoding event %s on guild %s: %v", eventID, c.GuildID, rslt.Err())
+		} else if err != nil {
+			fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 			s.ChannelMessageSend(channelID, ":scream::scream::scream:Something very weird happened when trying to edit this event. Sorry but EventsBot has no answers for you :cry:")
 			return
 		}
@@ -509,7 +488,7 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 			TriggerMessage: m,
 			MessageID:      messageID,
 			State:          stateDone,
-			Event:          event,
+			Event:          *event,
 			Committed:      true,
 		}
 		gv.escrowEvents[messageID] = newEvent
