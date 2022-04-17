@@ -222,7 +222,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 	}
 
 	// Get all time zones
-	var tzLookup map[string]database.TimeZone
+	tzLookup := make(map[string]database.TimeZone)
 	tzs, err := db.GetTimeZones(g.ID)
 	if err != nil {
 		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
@@ -313,9 +313,12 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 
 	// Find event in DB
 	event, err := db.GetEvent(g.ID, command[1])
-	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+	if err == ErrNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
 
@@ -601,9 +604,12 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 
 	// Find event in DB
 	event, err := db.GetEvent(g.ID, command[1])
-	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+	if err == ErrNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
 
@@ -652,9 +658,12 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Find event in DB
 	event, err := db.GetEvent(g.ID, command[1])
-	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+	if err == ErrNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
 
@@ -743,9 +752,12 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 
 	// Find event in DB
 	event, err := db.GetEvent(g.ID, command[1])
-	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+	if err == ErrNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
 
@@ -881,9 +893,12 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 
 	// Find event in DB
 	event, err := db.GetEvent(g.ID, command[1])
-	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+	if err == ErrNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
 

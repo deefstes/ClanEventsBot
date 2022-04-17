@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -68,7 +67,7 @@ func (db *Database) AddGuild(guildID, guildName, defaultChannel string) error {
 	guild.ID = guildID
 	guild.Name = guildName
 	filter := bson.M{"discordId": guild.ID}
-	guild.ObjectID = primitive.NilObjectID
+	//guild.ObjectID = primitive.NilObjectID
 	_, err := c1.ReplaceOne(
 		db.ctx,
 		filter,
@@ -183,7 +182,7 @@ func (db *Database) GetTimeZones(guildID string) ([]TimeZone, error) {
 
 func (db *Database) GetTimeZone(guildID, timezone string) (*TimeZone, error) {
 	c := db.client.Database(fmt.Sprintf("ClanEvents%s", guildID)).Collection("TimeZones")
-	var tz *TimeZone
+	var tz TimeZone
 	rslt := c.FindOne(db.ctx, bson.M{"abbrev": timezone})
 	if rslt.Err() != nil {
 		if rslt.Err() == mongo.ErrNoDocuments {
@@ -191,12 +190,12 @@ func (db *Database) GetTimeZone(guildID, timezone string) (*TimeZone, error) {
 		}
 		return nil, fmt.Errorf("ClanEvents%s.TimeZones.FindOne(): %w", guildID, rslt.Err())
 	}
-	err := rslt.Decode(tz)
+	err := rslt.Decode(&tz)
 	if err != nil {
 		return nil, fmt.Errorf("decoding timezone: %w", err)
 	}
 
-	return tz, nil
+	return &tz, nil
 }
 
 func (db *Database) AddRoleTimeZone(guildID, roleName, tzAbbr string) error {
@@ -281,17 +280,20 @@ func (db *Database) GetEvents(guildID, user string, date time.Time) ([]ClanEvent
 func (db *Database) GetEvent(guildID, eventID string) (*ClanEvent, error) {
 	c := db.client.Database(fmt.Sprintf("ClanEvents%s", guildID)).Collection("Events")
 
-	var event *ClanEvent
+	var event ClanEvent
 	rslt := c.FindOne(db.ctx, bson.M{"eventId": eventID})
 	if rslt.Err() != nil {
+		if rslt.Err() == mongo.ErrNoDocuments {
+			return nil, ErrNoDocuments
+		}
 		return nil, fmt.Errorf("ClanEvents%s.Events.FindOne(): %w", guildID, rslt.Err())
 	}
-	err := rslt.Decode(event)
+	err := rslt.Decode(&event)
 	if err != nil {
 		return nil, fmt.Errorf("decoding event: %w", err)
 	}
 
-	return event, nil
+	return &event, nil
 }
 
 func (db *Database) NewEvent(guildID string, event ClanEvent) error {
@@ -315,11 +317,14 @@ func (db *Database) DeleteEvent(guildID, eventID string) error {
 }
 
 func (db *Database) UpdateEvent(guildID string, event ClanEvent) error {
-	event.ObjectID = primitive.NilObjectID
+	//event.ObjectID = primitive.NilObjectID
 	c := db.client.Database(fmt.Sprintf("ClanEvents%s", guildID)).Collection("Events")
-	_, err := c.ReplaceOne(db.ctx, bson.M{"eventId": event.EventID}, event)
+	rslt, err := c.ReplaceOne(db.ctx, bson.M{"eventId": event.EventID}, event, options.Replace().SetUpsert(true))
 	if err != nil {
 		return fmt.Errorf("ClanEvents%s.Events.ReplaceOne(): %w", guildID, err)
+	}
+	if rslt.ModifiedCount == 0 && rslt.UpsertedCount == 0 {
+		return fmt.Errorf("ClanEvents%s.Events.ReplaceOne() made 0 replacements/upserts: %w", guildID, err)
 	}
 
 	return nil
@@ -350,7 +355,7 @@ func (db *Database) ArchiveEvents(guildID string) error {
 		upsertfilter := bson.M{"eventId": event.EventID}
 		event.Archived = true
 		event.EventID = fmt.Sprintf("%s_%s", time.Now().Format("060102150405"), event.EventID)
-		event.ObjectID = primitive.NilObjectID
+		//event.ObjectID = primitive.NilObjectID
 		_, err := c.ReplaceOne(
 			db.ctx,
 			upsertfilter,
