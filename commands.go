@@ -185,7 +185,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 
 	// Test for correct number of arguments
 	if len(command) > 3 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with listing events, type the following:\r\n```%shelp listevents```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -201,7 +201,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 		} else if isDate(command[1]) {
 			specdate, _ = time.ParseInLocation("02/01/2006", command[1], defaultLocation)
 		} else {
-			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+			message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 			message = fmt.Sprintf("%s\r\nFor help with listing events, type the following:\r\n```%shelp listevents```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
@@ -213,7 +213,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 		if isUser(command[2]) {
 			listuser = m.Mentions[0].Username
 		} else {
-			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :anguished:")
+			message = "Whoah, not so sure about those arguments. EventsBot is confused :anguished:"
 			message = fmt.Sprintf("%s\r\nFor help with listing events, type the following:\r\n```%shelp listevents```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
@@ -268,7 +268,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 					curEvent = fmt.Sprintf("%s %s,", curEvent, participant.DisplayName())
 				}
 				// Remove trailing comma
-				curEvent = fmt.Sprintf("%s", strings.TrimSuffix(curEvent, ","))
+				curEvent = strings.TrimSuffix(curEvent, ",")
 			}
 
 			// Add reserves to message
@@ -279,7 +279,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 					curEvent = fmt.Sprintf("%s %s,", curEvent, reserve.DisplayName())
 				}
 				// Remove trailing comma
-				curEvent = fmt.Sprintf("%s", strings.TrimSuffix(curEvent, ","))
+				curEvent = strings.TrimSuffix(curEvent, ",")
 			}
 
 			// Add status to message
@@ -311,7 +311,7 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 
 	// Test for correct number of arguments
 	if len(command) != 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with getting the details of an event, type the following:\r\n```%shelp details```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -340,7 +340,7 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 			return
 		} else if err != nil {
 			fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:"))
+			s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:")
 			return
 		}
 
@@ -381,7 +381,7 @@ func New(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, c
 	newid := getEventID(time.Now())
 	gv, ok := guildVars[g.ID]
 	if !ok {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble obtaining the guild information :no_mouth:"))
+		s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
 	}
 	curUser := gv.impersonated
@@ -399,7 +399,7 @@ func New(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, c
 
 	// Test for name
 	if len(eventName) > 50 {
-		message := fmt.Sprintf("That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:")
+		message := "That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:"
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp new```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -450,7 +450,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		descrNdx = 6
 		teamNdx = 7
 	default:
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -486,7 +486,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 
 		usrLocation, err = time.LoadLocation(tz.Location)
 		if err != nil {
-			message = fmt.Sprintf("EventsBot is having trouble working with this time zone. Are we anywhere near a worm hole perhaps? :no_mouth:")
+			message = "EventsBot is having trouble working with this time zone. Are we anywhere near a worm hole perhaps? :no_mouth:"
 			message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
@@ -505,7 +505,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		return
 	}
 	if dt.Before(time.Now()) {
-		message = fmt.Sprintf("Are you trying to create an event in the past? EventsBot has lost his flux capacitor :robot:")
+		message = "Are you trying to create an event in the past? EventsBot has lost his flux capacitor :robot:"
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -522,7 +522,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 
 	// Test for name
 	if len(command[nameNdx]) > 50 {
-		message = fmt.Sprintf("That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:")
+		message = "That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:"
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -530,7 +530,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 
 	// Test for description
 	if len(command[descrNdx]) > 150 {
-		message = fmt.Sprintf("That's a very long description right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 150 characters please. :triumph:")
+		message = "That's a very long description right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 150 characters please. :triumph:"
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -591,7 +591,7 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 
 	// Test for correct number of arguments
 	if len(command) < 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with editing an event, type the following:\r\n```%shelp edit```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -628,7 +628,7 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 	}
 
 	if !allowed {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to edit this event.\r\nEventsBot will not stand for this :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to edit this event.\r\nEventsBot will not stand for this :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with editing events, type the following:\r\n```%shelp edit```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -645,7 +645,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Test for correct number of arguments
 	if len(command) != 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with cancelling an event, type the following:\r\n```%shelp cancelevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -682,7 +682,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	}
 
 	if !allowed {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to cancel this event.\r\nEventsBot will not stand for this :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to cancel this event.\r\nEventsBot will not stand for this :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with cancelling events, type the following:\r\n```%shelp cancelevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -722,7 +722,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 	signupUsers := []database.ClanUser{}
 
 	if len(command) < 2 {
-		message = fmt.Sprintf("Come on! Surely you're not expecting me to guess which event you're trying to sign up to :confused:")
+		message = "Come on! Surely you're not expecting me to guess which event you're trying to sign up to :confused:"
 		message = fmt.Sprintf("%s\r\nFor help with signing up to events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -745,7 +745,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 					}
 				}
 			} else {
-				message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+				message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 				message = fmt.Sprintf("%s\r\n%s doesn't look like anyone I recognise.", message, command[i])
 				message = fmt.Sprintf("%s\r\nFor help with signing up to events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)
 				s.ChannelMessageSend(m.ChannelID, message)
@@ -777,7 +777,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 		}
 
 		if !allowed {
-			message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to sign other users up to events.\r\nEventsBot will not stand for this :point_up:")
+			message = "Yo yo yo. Back up a second dude. You don't have permissions to sign other users up to events.\r\nEventsBot will not stand for this :point_up:"
 			message = fmt.Sprintf("%s\r\nFor help with signing up to events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
@@ -861,7 +861,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 
 	// Test for correct number of arguments
 	if len(command) > 3 || len(command) < 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with leaving an event, type the following:\r\n```%shelp leave```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -890,7 +890,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 				DateTime: time.Now(),
 			}
 		} else {
-			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+			message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 			message = fmt.Sprintf("%s\r\nFor help with signing up to events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
@@ -918,7 +918,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 		}
 
 		if !allowed {
-			message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to remove other users from events.\r\nEventsBot will not stand for this :point_up:")
+			message = "Yo yo yo. Back up a second dude. You don't have permissions to remove other users from events.\r\nEventsBot will not stand for this :point_up:"
 			message = fmt.Sprintf("%s\r\nFor help with leaving events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
@@ -1003,7 +1003,7 @@ func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	message := ""
 
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to impersonate other users.\r\nEventsBot will not stand for this :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to impersonate other users.\r\nEventsBot will not stand for this :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with impersonating users, type the following:\r\n```%shelp impersonate```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1011,7 +1011,7 @@ func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Test for correct number of arguments
 	if len(command) > 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with impersonating users, type the following:\r\n```%shelp impersonate```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1019,7 +1019,7 @@ func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Check first argument
 	if !isUser(command[1]) {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 		message = fmt.Sprintf("%s\r\nFor help with impersonating users, type the following:\r\n```%shelp impersonate```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1045,7 +1045,7 @@ func Unimpersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 // Echo simply repeats the user's message
 func Echo(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	s.ChannelMessageDelete(m.ChannelID, m.ID)
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(strings.Join(command[1:], " ")))
+	s.ChannelMessageSend(m.ChannelID, strings.Join(command[1:], " "))
 }
 
 // Test is used to simply check that the bot is online and responding
@@ -1065,7 +1065,7 @@ func AddNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 
 	// Test for correct number of arguments
 	if len(command) != 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a user to the naughty list, type the following:\r\n```%shelp addnaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1081,7 +1081,7 @@ func AddNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 			DateTime: time.Now(),
 		}
 	} else {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a user to the naughty list, type the following:\r\n```%shelp addnaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1089,7 +1089,7 @@ func AddNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to add users to the naughty list.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to add users to the naughty list.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a user to the naughty list, type the following:\r\n```%shelp addnaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1112,7 +1112,7 @@ func RemoveNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 
 	// Test for correct number of arguments
 	if len(command) != 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with removing a user from the naughty list, type the following:\r\n```%shelp removenaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1128,7 +1128,7 @@ func RemoveNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 			DateTime: time.Now(),
 		}
 	} else {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 		message = fmt.Sprintf("%s\r\nFor help with removing a user from the naughty list, type the following:\r\n```%shelp removenaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1136,7 +1136,7 @@ func RemoveNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to remove users from the naughty list.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to remove users from the naughty list.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with removing a user from the naughty list, type the following:\r\n```%shelp removenaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1161,7 +1161,7 @@ func ListNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Test for correct number of arguments
 	if len(command) != 1 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with displaying the naughty list, type the following:\r\n```%shelp naughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1175,7 +1175,7 @@ func ListNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	}
 
 	if len(users) == 0 {
-		message = fmt.Sprintf("Naughty list? What naughty list? There's no one on any naughty list. :man_shrugging:")
+		message = "Naughty list? What naughty list? There's no one on any naughty list. :man_shrugging:"
 	} else {
 		message = "Well... Ahem..."
 		for _, user := range users {
@@ -1191,7 +1191,7 @@ func RemindNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 
 	// Test for correct number of arguments
 	if len(command) != 3 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1200,7 +1200,7 @@ func RemindNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 	// Test that first argument is an integer
 	interval, err := strconv.ParseInt(command[1], 10, 64)
 	if err != nil {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1208,13 +1208,13 @@ func RemindNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 
 	randFact, err := strconv.ParseFloat(command[2], 64)
 	if err != nil {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 	if randFact < 0 || randFact > 1 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1222,7 +1222,7 @@ func RemindNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to set the naughty list reminder frequency.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to set the naughty list reminder frequency.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a user to the naughty list, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1231,13 +1231,13 @@ func RemindNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 	err = db.SetNaughtyListInterval(g.ID, interval, randFact)
 	if err != nil {
 		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to set the naughty list reminder frequency. Sorry but EventsBot has no answers for you :cry:"))
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to set the naughty list reminder frequency. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
 	gv, ok := guildVars[g.ID]
 	if !ok {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to set the naughty list reminder frequency. Sorry but EventsBot has no answers for you :cry:"))
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to set the naughty list reminder frequency. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 	gv.insultInterval = interval
@@ -1254,7 +1254,7 @@ func AddServer(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCre
 
 	// Test for correct number of arguments
 	if len(command) != 1 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a server to EventsBot, type the following:\r\n```%shelp addserver```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1262,7 +1262,7 @@ func AddServer(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCre
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to register servers.\r\nEventsBot will not stand for this :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to register servers.\r\nEventsBot will not stand for this :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a server to EventsBot, type the following:\r\n```%shelp addserver```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1286,14 +1286,14 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Test for correct number of arguments
 	if len(command) < 3 || len(command) > 4 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 	if len(command) > 3 {
 		if len(command[3]) != 8 || utf8.RuneCountInString(command[3]) != 2 {
-			message = fmt.Sprintf("Huh? What kind of an emoji is that. Pick somethign better please :expressionless:")
+			message = "Huh? What kind of an emoji is that. Pick somethign better please :expressionless:"
 			message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 
@@ -1302,7 +1302,7 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to add time zones.\r\nYou don't look like you're from Gallifrey either :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to add time zones.\r\nYou don't look like you're from Gallifrey either :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1310,7 +1310,7 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	gv, ok := guildVars[g.ID]
 	if !ok {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble obtaining the guild information :no_mouth:"))
+		s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
 	}
 	newTZ, found := gv.tzByAbbr[command[1]]
@@ -1360,7 +1360,7 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 
 	// Test for correct number of arguments
 	if len(command) != 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with removing a time zone, type the following:\r\n```%shelp removetimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1368,7 +1368,7 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to remove time zones.\r\nYou don't look like you're from Gallifrey either :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to remove time zones.\r\nYou don't look like you're from Gallifrey either :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1377,7 +1377,7 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 	// Get guild variables
 	gv, ok := guildVars[g.ID]
 	if !ok {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble obtaining the guild information :no_mouth:"))
+		s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
 	}
 
@@ -1425,7 +1425,7 @@ func ListTimeZones(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 
 	// Test for correct number of arguments
 	if len(command) != 1 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with listing time zones, type the following:\r\n```%shelp listtimezones```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1462,7 +1462,7 @@ func ListTimeZones(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 					s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to interpret the time zone icon. Sorry but EventsBot has no answers for you :cry:")
 					return
 				}
-				emojistr := string(bytearray[:len(bytearray)])
+				emojistr := string(bytearray[:])
 				message = fmt.Sprintf("%s %s\r\n", message, emojistr)
 			} else {
 				message = fmt.Sprintf("%s\r\n", message)
@@ -1486,7 +1486,7 @@ func RoleTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Message
 
 	// Test for correct number of arguments
 	if len(command) != 3 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with linking a time zone to a server role, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1494,7 +1494,7 @@ func RoleTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Message
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to link server roles to time zones.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to link server roles to time zones.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return

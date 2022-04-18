@@ -36,14 +36,14 @@ func ShowDevelopingEvent(s *discordgo.Session, m *discordgo.MessageCreate, chann
 	// Get channel
 	c, err := s.Channel(channel)
 	if err != nil {
-		s.ChannelMessageSend(channel, fmt.Sprintf("EventsBot had trouble obtaining the channel information :no_mouth:"))
+		s.ChannelMessageSend(channel, "EventsBot had trouble obtaining the channel information :no_mouth:")
 		return
 	}
 
 	// Get guild variables
 	gv, ok := guildVars[c.GuildID]
 	if !ok {
-		s.ChannelMessageSend(channel, fmt.Sprintf("EventsBot had trouble obtaining the guild information :no_mouth:"))
+		s.ChannelMessageSend(channel, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
 	}
 
@@ -54,7 +54,7 @@ func ShowDevelopingEvent(s *discordgo.Session, m *discordgo.MessageCreate, chann
 	if newEvent.Event.TimeZone != "" {
 		tz, ok := gv.tzByAbbr[newEvent.Event.TimeZone]
 		if !ok {
-			s.ChannelMessageSend(channel, fmt.Sprintf("EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:"))
+			s.ChannelMessageSend(channel, "EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:")
 			return
 		}
 		tzInfo = tz.Abbrev
@@ -69,7 +69,7 @@ func ShowDevelopingEvent(s *discordgo.Session, m *discordgo.MessageCreate, chann
 	}
 
 	// Construct message
-	message = fmt.Sprintf("NEW EVENT")
+	message = "NEW EVENT"
 	message = fmt.Sprintf("%s\r\n**Creator:** %s", message, newEvent.Event.Creator.Mention())
 	message = fmt.Sprintf("%s\r\n**Name:** %s", message, newEvent.Event.Name)
 	if newEvent.State >= stateNew {
@@ -222,7 +222,7 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 	// Get channel
 	c, err := s.Channel(m.MessageReaction.ChannelID)
 	if err != nil {
-		s.ChannelMessageSend(m.MessageReaction.ChannelID, fmt.Sprintf("EventsBot had trouble obtaining the channel information :no_mouth:"))
+		s.ChannelMessageSend(m.MessageReaction.ChannelID, "EventsBot had trouble obtaining the channel information :no_mouth:")
 		return
 	}
 
@@ -419,14 +419,14 @@ func CommitEvent(s *discordgo.Session, channelID string, newEvent DevelopingEven
 	// Get channel
 	channel, err := s.Channel(channelID)
 	if err != nil {
-		s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot had trouble obtaining the channel information :no_mouth:"))
+		s.ChannelMessageSend(channelID, "EventsBot had trouble obtaining the channel information :no_mouth:")
 		return
 	}
 
 	// Get guild
 	guild, err := s.Guild(channel.GuildID)
 	if err != nil {
-		s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot had trouble obtaining the guild information :no_mouth:"))
+		s.ChannelMessageSend(channelID, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
 	}
 
@@ -462,7 +462,7 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 	// Get channel
 	c, err := s.Channel(channelID)
 	if err != nil {
-		s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot had trouble obtaining the channel information :no_mouth:"))
+		s.ChannelMessageSend(channelID, "EventsBot had trouble obtaining the channel information :no_mouth:")
 		return
 	}
 
@@ -494,7 +494,11 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 		gv.escrowEvents[messageID] = newEvent
 		developingEvent = newEvent
 	}
-	developingEvent, _ = gv.escrowEvents[messageID]
+	developingEvent, ok = gv.escrowEvents[messageID]
+	if !ok {
+		s.ChannelMessageSend(channelID, "EventsBot had trouble interpreting the developing event. This is one of those things that should happen but then they do. :face_with_spiral_eyes:")
+		return
+	}
 
 	// Get time zone
 	tzInfo := ""
@@ -503,7 +507,7 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 	if developingEvent.Event.TimeZone != "" {
 		tz, ok := gv.tzByAbbr[developingEvent.Event.TimeZone]
 		if !ok {
-			s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:"))
+			s.ChannelMessageSend(channelID, "EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:")
 			return
 		}
 		tzInfo = tz.Abbrev
@@ -511,7 +515,7 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 	}
 
 	// Construct message
-	message := fmt.Sprintf("EDIT EVENT")
+	message := "EDIT EVENT"
 	message = fmt.Sprintf("%s\r\n**Creator:** %s", message, developingEvent.Event.Creator.Mention())
 	message = fmt.Sprintf("%s\r\n**Name:** %s", message, developingEvent.Event.Name)
 	message = fmt.Sprintf("%s\r\n**Date:** %s", message, developingEvent.Event.DateTime.In(eventLocation).Format("Mon 2 Jan 2006"))
@@ -533,7 +537,6 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 	// Post or update message
 	if messageID == "" {
 		newMsg, _ := s.ChannelMessageSend(channelID, message)
-		messageID = newMsg.ID
 		gv.escrowEvents[newMsg.ID] = developingEvent
 	} else {
 		s.ChannelMessageEdit(channelID, messageID, "")

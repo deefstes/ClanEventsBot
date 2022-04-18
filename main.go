@@ -120,6 +120,10 @@ func main() {
 	defer db.Close()
 
 	guilds, err := db.GetGuilds()
+	if err != nil {
+		fmt.Println("FATAL", "reading guilds: %v", err)
+		os.Exit(1)
+	}
 	if len(guilds) == 0 {
 		fmt.Printf("No registered guilds\r\n")
 	}
@@ -190,7 +194,7 @@ func main() {
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Press CTRL-C to exit")
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 }
 
@@ -233,7 +237,7 @@ func constructTZMaps(tzs []database.TimeZone) (tzBA map[string]database.TimeZone
 			if err != nil {
 				panic(err)
 			}
-			emojistr := string(bytearray[:len(bytearray)])
+			emojistr := string(bytearray[:])
 			tzBE[emojistr] = timezone
 		}
 	}
@@ -247,7 +251,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Fprintf(os.Stderr, "%+v", r)
-			message := fmt.Sprintf("Well this is embarrasing :flushed:.")
+			message := "Well this is embarrasing :flushed:."
 			message = fmt.Sprintf("%s\r\nSomething went wrong and I don't know what it is. We shall never speak of this again.", message)
 			sendMessage(m.ChannelID, message)
 		}
