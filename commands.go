@@ -29,6 +29,7 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		// message = fmt.Sprintf("%s\r\n    %snewevent", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %scancel", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %sedit", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %srename", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %ssignup", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %sleave", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %swisdom", message, config.CommandPrefix)
@@ -52,7 +53,7 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	case "details":
 		message = fmt.Sprintf("%s\r\nHere's how to get details for an event:", message)
 		message = fmt.Sprintf("%s\r\n```\r\n%sdetails EventID\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 4 character identifier that uniquely identifies the event. Take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
 		message = fmt.Sprintf("%s\r\n```", message)
 	case "new":
 		message = fmt.Sprintf("%s\r\nHere's how to create a new event (interactive mode):", message)
@@ -86,23 +87,30 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s\r\nThis will bring up an interactive message allowing you to edit the", message)
 		message = fmt.Sprintf("%s\r\n\r\nNote: Only the creator of an event or users with the EventsBotAdmin role assigned can edit an event.", message)
 		message = fmt.Sprintf("%s\r\n```", message)
+	case "rename":
+		message = fmt.Sprintf("%s\r\nHere's how to rename an event:", message)
+		message = fmt.Sprintf("%s\r\n```\r\n%srename EventID Name\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 4 character identifier that uniquely identifies the event. Take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n       Name: New name to be used for the event.", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: Only the creator of an event or users with the EventsBotAdmin role assigned can edit an event.", message)
+		message = fmt.Sprintf("%s\r\n```", message)
 	case "cancel":
 		message = fmt.Sprintf("%s\r\nHere's how to cancel an event:", message)
 		message = fmt.Sprintf("%s\r\n```\r\n%scancel EventID\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 4 character identifier that uniquely identifies the event. Take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
 		message = fmt.Sprintf("%s\r\n\r\nNote: Only the creator of an event or users with the EventsBotAdmin role assigned can cancel an event.", message)
 		message = fmt.Sprintf("%s\r\n```", message)
 	case "signup":
 		message = fmt.Sprintf("%s\r\nHere's how to sign up to an event:", message)
 		message = fmt.Sprintf("%s\r\n```\r\n%ssignup EventID [@Username] [@Username] ...\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 4 character identifier that uniquely identifies the event. Take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
 		message = fmt.Sprintf("%s\r\n  @Username: List of Discord users whom you wish to sign up to the event. Only the event creator and users with the EventsBotAdmin role assigned are allowed to sign users other than themselves up to an event. This value is optional.", message)
 		message = fmt.Sprintf("%s\r\n\r\nNote: You can still sign up to an event even if it is already full. You will then be registered as a reserve for the event and promoted if someone leaves the event.", message)
 		message = fmt.Sprintf("%s\r\n```", message)
 	case "leave":
 		message = fmt.Sprintf("%s\r\nHere's how to leave an event:", message)
 		message = fmt.Sprintf("%s\r\n```\r\n%sleave EventID [@Username]\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 4 character identifier that uniquely identifies the event. Take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
 		message = fmt.Sprintf("%s\r\n  @Username: The Discord user whom you wish to remove from the event. Only the event creator and users with the EventsBotAdmin role assigned are allowed to remove users other than themselves from an event. This value is optional.", message)
 		message = fmt.Sprintf("%s\r\n```", message)
 	case "impersonate":
@@ -636,6 +644,81 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 
 	newMsg, _ := s.ChannelMessageSend(m.ChannelID, "EDIT EVENT")
 	EditEvent(s, m, m.ChannelID, newMsg.ID, strings.ToUpper(command[1]))
+}
+
+// Rename is used to rename an existing event
+// ~rename EventID Name
+func Rename(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	message := ""
+
+	// Test for correct number of arguments
+	if len(command) < 3 {
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
+		message = fmt.Sprintf("%s\r\nFor help with editing an event, type the following:\r\n```%shelp edit```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	newName := strings.Join(command[2:], " ")
+
+	// Test for name
+	if len(newName) > 50 {
+		message := "That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:"
+		message = fmt.Sprintf("%s\r\nFor help with renaming an new event, type the following:\r\n```%shelp rename```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	curUser := guildVars[g.ID].impersonated
+	curUser.DateTime = time.Now()
+	if curUser.UserName == "" {
+		curUser = database.ClanUser{
+			UserName: m.Author.Username,
+			UserID:   m.Author.ID,
+			Nickname: getNickname(g, s, m.Author.ID),
+			DateTime: time.Now(),
+		}
+	}
+
+	// Find event in DB
+	event, err := db.GetEvent(g.ID, command[1])
+	if err == ErrNoRecords {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
+		return
+	}
+
+	// Check that user has permissions
+	allowed := false
+	if event.Creator.UserName == curUser.UserName {
+		allowed = true
+	} else if hasRole(g, s, m, "EventsBotAdmin") {
+		allowed = true
+	}
+
+	if !allowed {
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to rename this event.\r\nEventsBot will not stand for this :point_up:"
+		message = fmt.Sprintf("%s\r\nFor help with renaming events, type the following:\r\n```%shelp rename```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	oldName := event.Name
+	event.Name = newName
+
+	// Update event
+	err = db.UpdateEvent(g.ID, *event)
+	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to rename this event. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+
+	message = fmt.Sprintf("Alright pay attention! %s's event, %s, shall henceforth be called %s.", event.Creator.Mention(), oldName, newName)
+	s.ChannelMessageSend(m.ChannelID, message)
 }
 
 // CancelEvent is used to delete a specified event

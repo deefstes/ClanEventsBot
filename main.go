@@ -294,6 +294,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		New(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "edit ") {
 		Edit(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "rename ") {
+		Rename(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "cancel ") {
 		CancelEvent(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "cancelevent ") {
