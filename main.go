@@ -20,10 +20,9 @@ import (
 )
 
 var (
-	buildNumber string
-	liveTime    time.Time
-	config      Configuration
-	// mongoClient     *mongo.Client
+	buildNumber     string
+	liveTime        time.Time
+	config          Configuration
 	db              *database.Database
 	discordSession  *discordgo.Session
 	defaultLocation *time.Location
@@ -32,12 +31,53 @@ var (
 )
 
 type GuildVars struct {
-	guild        database.Guild
-	impersonated database.ClanUser
-	timezones    []database.TimeZone
-	tzByAbbr     map[string]database.TimeZone
-	tzByEmoji    map[string]database.TimeZone
-	escrowEvents map[string]DevelopingEvent
+	guild          database.Guild
+	impersonated   database.ClanUser
+	timezones      []database.TimeZone
+	tzByAbbr       map[string]database.TimeZone
+	tzByEmoji      map[string]database.TimeZone
+	escrowEvents   map[string]DevelopingEvent
+	defaultChannel string
+	insultInterval int64
+	insultRndFact  float64
+	insultTicker   *time.Ticker
+}
+
+func (g *GuildVars) startInsultTimer() {
+	g.stopInsultTimer()
+	if g.insultInterval == 0 {
+		return
+	}
+
+	d := time.Duration(g.insultInterval) * time.Minute
+	dd := time.Duration(float64(d) * g.insultRndFact)
+	fmt.Println("starting insult timer on guild", g.guild.ID, "to fire every", d, "±", dd)
+	g.insultTicker = time.NewTicker(time.Duration(g.insultInterval) * time.Minute)
+	// defer g.insultTicker.Stop()
+	go func() {
+		max := int(float64(g.insultInterval) * 60 * (1 + g.insultRndFact))
+		min := int(float64(g.insultInterval) * 60 * (1 - g.insultRndFact))
+		if min == 0 {
+			min = max
+		}
+		for range g.insultTicker.C {
+			// Set new random interval within specified bounds
+			dur := time.Duration(max) * time.Second
+			if max != min {
+				dur = time.Duration(rand.Intn(max-min)+min) * time.Second
+			}
+			g.insultTicker.Reset(dur)
+			fmt.Println("resetting insult timer on guild", g.guild.ID, "to fire after", dur)
+			deliverInsult(g)
+		}
+	}()
+}
+
+func (g *GuildVars) stopInsultTimer() {
+	if g.insultTicker != nil {
+		fmt.Println("stopping insult timer on guild", g.guild.ID)
+		g.insultTicker.Stop()
+	}
 }
 
 func main() {
@@ -49,6 +89,13 @@ func main() {
 
 	if buildNumber == "" {
 		buildNumber = "N/A"
+	}
+
+	fmt.Printf("ClanEventsBot (build number %s)", buildNumber)
+	if config.DebugLevel > 0 {
+		fmt.Printf(" with DebugLevel=%d\r\n", config.DebugLevel)
+	} else {
+		fmt.Println()
 	}
 
 	liveTime = time.Now()
@@ -78,28 +125,56 @@ func main() {
 	}
 
 	for _, guild := range guilds {
-		guildVars[guild.ID] = NewGuildVars(guild)
+		guildVars[guild.ID] = GetGuildVars(guild)
 	}
 
 	// Create a new Discord session using the provided bot token.
 	discordSession, err = discordgo.New("Bot " + config.Token)
 	if err != nil {
-		fmt.Println("error creating Discord session,", err)
+		fmt.Println("ERROR", "creating Discord session,", err)
 		return
 	}
 	defer discordSession.Close()
 
 	discordSession.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsGuilds | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions)
 
-	// Set up a ticker that triggers a service routine every n minutes
-	ticker := time.NewTicker(time.Minute * config.ServiceTimer)
-	defer ticker.Stop()
+	// Set up a svcTicker that triggers a service routine every n minutes
+	fmt.Println("starting service routine to fire every", config.ServiceTimer, "minutes")
+	svcTicker := time.NewTicker(time.Duration(config.ServiceTimer) * time.Minute)
+	defer svcTicker.Stop()
 	go func() {
-		for {
-			<-ticker.C
+		for range svcTicker.C {
 			serviceRoutine()
 		}
 	}()
+
+	// Set up a ticker for each registered guild to deliver insults
+	for _, g := range guildVars {
+		g.startInsultTimer()
+		defer g.stopInsultTimer()
+		// if g.insultInterval == 0 {
+		// 	continue
+		// }
+
+		// d := time.Duration(g.insultInterval) * time.Minute
+		// dd := time.Duration(float64(d) * g.insultRndFact)
+		// fmt.Println("starting insult timer on guild", g.guild.ID, "to fire every", d, "±", dd)
+		// g.insultTicker = time.NewTicker(time.Duration(g.insultInterval) * time.Minute)
+		// defer g.insultTicker.Stop()
+		// go func(gv *GuildVars) {
+		// 	min := int(gv.insultInterval * (1 - gv.insultRndFact))
+		// 	max := int(gv.insultInterval * (1 + gv.insultRndFact))
+		// 	for range gv.insultTicker.C {
+		// 		// Set new random interval within specified bounds
+		// 		dur := time.Duration(max) * time.Minute
+		// 		if max != min {
+		// 			dur = time.Duration(rand.Intn(max-min)+min) * time.Minute
+		// 		}
+		// 		gv.insultTicker.Reset(dur)
+		// 		deliverInsult(gv)
+		// 	}
+		// }(g)
+	}
 
 	// Register the messageCreate and messageReact functions as callbacks for MessageCreate and MessageReactionAdd events.
 	discordSession.AddHandler(messageCreate)
@@ -113,19 +188,13 @@ func main() {
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	fmt.Printf("ClanEventsBot (build number %s) is now running", buildNumber)
-	if config.DebugLevel > 0 {
-		fmt.Printf(" with DebugLevel=%d\r\n", config.DebugLevel)
-	} else {
-		fmt.Println()
-	}
 	fmt.Println("Press CTRL-C to exit")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
 }
 
-func NewGuildVars(g database.Guild) *GuildVars {
+func GetGuildVars(g database.Guild) *GuildVars {
 	ee := make(map[string]DevelopingEvent)
 
 	tzs, err := db.GetTimeZones(g.ID)
@@ -135,12 +204,21 @@ func NewGuildVars(g database.Guild) *GuildVars {
 	}
 	tzBA, tzBE := constructTZMaps(tzs)
 
+	conf, err := db.GetClanConfig(g.ID)
+	if err != nil {
+		fmt.Println("ERROR", err)
+		return nil
+	}
+
 	return &GuildVars{
-		guild:        g,
-		timezones:    tzs,
-		tzByAbbr:     tzBA,
-		tzByEmoji:    tzBE,
-		escrowEvents: ee,
+		guild:          g,
+		timezones:      tzs,
+		tzByAbbr:       tzBA,
+		tzByEmoji:      tzBE,
+		escrowEvents:   ee,
+		defaultChannel: conf.DefaultChannel,
+		insultInterval: conf.InsultInterval,
+		insultRndFact:  conf.InsultRndFact,
 	}
 }
 
@@ -238,6 +316,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		RemoveNaughty(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "naughtylist") {
 		ListNaughty(guild, s, m, commandElements)
+	} else if strings.HasPrefix(command, "remindnaughtylist ") {
+		RemindNaughty(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "addserver") {
 		AddServer(guild, s, m, commandElements)
 	} else if strings.HasPrefix(command, "addtimezone ") {
@@ -288,7 +368,6 @@ func serviceRoutine() {
 }
 
 func serviceGuild(guild database.Guild) {
-	deliverInsult(guild.ID)
 	archiveEvents(guild.ID)
 }
 
@@ -312,26 +391,17 @@ func archiveEvents(guildID string) {
 	}
 }
 
-func deliverInsult(guildID string) {
-	config, err := db.GetClanConfig(guildID)
-	if err != nil {
-		fmt.Println(err)
+func deliverInsult(g *GuildVars) {
+	insultee, err := getInsultee(g.guild.ID)
+	if err == ErrNoRecords {
+		return
+	} else if err != nil {
+		fmt.Println("ERROR", "delivering insult on guild %s: %v", g.guild.ID, err)
 		return
 	}
-
-	prob := rand.Float64()
-	if prob <= config.InsultProbability {
-		insultee, err := getInsultee(guildID)
-		if err == ErrNoRecords {
-			return
-		} else if err != nil {
-			fmt.Println("ERROR", "delivering insult on guild %s: %v", guildID, err)
-			return
-		}
-		message := getInsult(insultee.Mention())
-		if message != "" {
-			sendMessage(config.DefaultChannel, message)
-		}
+	message := getInsult(insultee.Mention())
+	if message != "" {
+		sendMessage(g.defaultChannel, message)
 	}
 }
 

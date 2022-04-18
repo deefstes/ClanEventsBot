@@ -131,6 +131,12 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s\r\n```\r\n%sremovenaughtylist @Username\r\n", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n  @Username: The Discord user you wish to remove from the naughty list", message)
 		message = fmt.Sprintf("%s\r\n```", message)
+	case "remindnaughtylist":
+		message = fmt.Sprintf("%s\r\nHere's how to set the naughty list reminder frequency:", message)
+		message = fmt.Sprintf("%s\r\n```\r\n%sremindnaughtylist Interval RandomFactor\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n     Interval: The interval in minutes between messages", message)
+		message = fmt.Sprintf("%s\r\n RandomFactor: The factor (decimal value between 0 and 1 to randomise the interval by", message)
+		message = fmt.Sprintf("%s\r\n```", message)
 	case "addserver":
 		message = fmt.Sprintf("%s\r\nHere's how to add a server to EventsBot:", message)
 		message = fmt.Sprintf("%s\r\n```\r\n%saddserver\r\n", message, config.CommandPrefix)
@@ -1176,6 +1182,69 @@ func ListNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 			message = fmt.Sprintf("%s\r\n%s", message, user.Mention())
 		}
 	}
+	s.ChannelMessageSend(m.ChannelID, message)
+}
+
+// RemindNaughty is used to set the frequency of how often the naughty list should be reprimanded
+func RemindNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	message := ""
+
+	// Test for correct number of arguments
+	if len(command) != 3 {
+		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Test that first argument is an integer
+	interval, err := strconv.ParseInt(command[1], 10, 64)
+	if err != nil {
+		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	randFact, err := strconv.ParseFloat(command[2], 64)
+	if err != nil {
+		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+	if randFact < 0 || randFact > 1 {
+		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Check that current user has permissions
+	if !hasRole(g, s, m, "EventsBotAdmin") {
+		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to set the naughty list reminder frequency.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:")
+		message = fmt.Sprintf("%s\r\nFor help with adding a user to the naughty list, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	err = db.SetNaughtyListInterval(g.ID, interval, randFact)
+	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to set the naughty list reminder frequency. Sorry but EventsBot has no answers for you :cry:"))
+		return
+	}
+
+	gv, ok := guildVars[g.ID]
+	if !ok {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to set the naughty list reminder frequency. Sorry but EventsBot has no answers for you :cry:"))
+		return
+	}
+	gv.insultInterval = interval
+	gv.insultRndFact = randFact
+	gv.startInsultTimer()
+
+	message = fmt.Sprintf("The naughty list reminder frequency has been set to %s ±%0.0f%%", time.Duration(interval)*time.Minute, randFact*100)
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 

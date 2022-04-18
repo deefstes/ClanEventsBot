@@ -370,6 +370,26 @@ func (db *Database) ArchiveEvents(guildID string) error {
 	return nil
 }
 
+func (db *Database) SetNaughtyListInterval(guildID string, interval int64, randFact float64) error {
+	c := db.client.Database(fmt.Sprintf("ClanEvents%s", guildID)).Collection("Config")
+
+	_, err := c.UpdateOne(
+		db.ctx,
+		bson.M{},
+		bson.D{{Key: "$set",
+			Value: bson.D{
+				{Key: "insultInterval", Value: interval},
+				{Key: "insultRndFact", Value: randFact},
+			},
+		}},
+	)
+	if err != nil {
+		return fmt.Errorf("ClanEvents%s.Config.UpdateOne(): %w", guildID, err)
+	}
+
+	return nil
+}
+
 func (db *Database) AddNaughtyList(guildID string, user ClanUser) error {
 	c := db.client.Database(fmt.Sprintf("ClanEvents%s", guildID)).Collection("NaughtyList")
 	filter := bson.M{"userName": user.UserName}
