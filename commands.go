@@ -943,7 +943,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	message := ""
 
 	// Test for correct number of arguments
-	if len(command) > 3 || len(command) < 2 {
+	if len(command) < 2 {
 		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with leaving an event, type the following:\r\n```%shelp leave```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
@@ -963,14 +963,21 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 
 	removeUser := curUser
 
-	// Check first argument
+	// Check specified user name
 	if len(command) > 2 {
-		if isUser(command[2]) {
+		userName := strings.Join(command[2:], " ")
+		if isUser(userName) {
 			removeUser = database.ClanUser{
 				UserName: m.Mentions[0].Username,
 				UserID:   m.Mentions[0].ID,
 				Nickname: getNickname(g, s, m.Mentions[0].ID),
 				DateTime: time.Now(),
+			}
+		} else if strings.HasPrefix(userName, "@") {
+			removeUser = database.ClanUser{
+				UserName:           userName[1:],
+				Nickname:           userName[1:],
+				Mention_deprecated: userName[1:],
 			}
 		} else {
 			message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
@@ -1011,7 +1018,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	// Check if user is in fact signed up for this event
 	participantIndex := -1
 	for i, participant := range event.Participants {
-		if participant.UserName == removeUser.UserName {
+		if participant.UserName == removeUser.UserName || participant.Nickname == removeUser.Nickname {
 			participantIndex = i
 		}
 	}
