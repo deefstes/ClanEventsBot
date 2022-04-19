@@ -1,3 +1,6 @@
 Token: <BOT TOKEN HERE>
 CommandPrefix: '~'
-MongoDB: 127.0.0.1
+MongoDB: <CONNECTION STRING HERE>
+ServiceTimer: 1
+DebugLevel: 1
+Dev: true

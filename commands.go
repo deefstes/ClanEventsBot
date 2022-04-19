@@ -1,7 +1,7 @@
 package main
 
 import (
-	"context"
+	"ClanEventsBot/database"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -10,10 +10,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/bwmarrin/discordgo"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // BotHelp is used to display a list of available commands or instructions on using a specified command
@@ -33,6 +29,7 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		// message = fmt.Sprintf("%s\r\n    %snewevent", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %scancel", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %sedit", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    %srename", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %ssignup", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %sleave", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n    %swisdom", message, config.CommandPrefix)
@@ -56,7 +53,7 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	case "details":
 		message = fmt.Sprintf("%s\r\nHere's how to get details for an event:", message)
 		message = fmt.Sprintf("%s\r\n```\r\n%sdetails EventID\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 4 character identifier that uniquely identifies the event. Take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
 		message = fmt.Sprintf("%s\r\n```", message)
 	case "new":
 		message = fmt.Sprintf("%s\r\nHere's how to create a new event (interactive mode):", message)
@@ -90,23 +87,30 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s\r\nThis will bring up an interactive message allowing you to edit the", message)
 		message = fmt.Sprintf("%s\r\n\r\nNote: Only the creator of an event or users with the EventsBotAdmin role assigned can edit an event.", message)
 		message = fmt.Sprintf("%s\r\n```", message)
+	case "rename":
+		message = fmt.Sprintf("%s\r\nHere's how to rename an event:", message)
+		message = fmt.Sprintf("%s\r\n```\r\n%srename EventID Name\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 4 character identifier that uniquely identifies the event. Take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n       Name: New name to be used for the event.", message)
+		message = fmt.Sprintf("%s\r\n\r\nNote: Only the creator of an event or users with the EventsBotAdmin role assigned can edit an event.", message)
+		message = fmt.Sprintf("%s\r\n```", message)
 	case "cancel":
 		message = fmt.Sprintf("%s\r\nHere's how to cancel an event:", message)
 		message = fmt.Sprintf("%s\r\n```\r\n%scancel EventID\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 4 character identifier that uniquely identifies the event. Take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
 		message = fmt.Sprintf("%s\r\n\r\nNote: Only the creator of an event or users with the EventsBotAdmin role assigned can cancel an event.", message)
 		message = fmt.Sprintf("%s\r\n```", message)
 	case "signup":
 		message = fmt.Sprintf("%s\r\nHere's how to sign up to an event:", message)
 		message = fmt.Sprintf("%s\r\n```\r\n%ssignup EventID [@Username] [@Username] ...\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 4 character identifier that uniquely identifies the event. Take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
 		message = fmt.Sprintf("%s\r\n  @Username: List of Discord users whom you wish to sign up to the event. Only the event creator and users with the EventsBotAdmin role assigned are allowed to sign users other than themselves up to an event. This value is optional.", message)
 		message = fmt.Sprintf("%s\r\n\r\nNote: You can still sign up to an event even if it is already full. You will then be registered as a reserve for the event and promoted if someone leaves the event.", message)
 		message = fmt.Sprintf("%s\r\n```", message)
 	case "leave":
 		message = fmt.Sprintf("%s\r\nHere's how to leave an event:", message)
 		message = fmt.Sprintf("%s\r\n```\r\n%sleave EventID [@Username]\r\n", message, config.CommandPrefix)
-		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 7 character identifier that uniquely identifies the event. These values are case sensitive so do take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
+		message = fmt.Sprintf("%s\r\n    EventID: That weird looking 4 character identifier that uniquely identifies the event. Take care to get it right. It's your key to participation, enjoyment and a deeper level of zen.", message)
 		message = fmt.Sprintf("%s\r\n  @Username: The Discord user whom you wish to remove from the event. Only the event creator and users with the EventsBotAdmin role assigned are allowed to remove users other than themselves from an event. This value is optional.", message)
 		message = fmt.Sprintf("%s\r\n```", message)
 	case "impersonate":
@@ -134,6 +138,12 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		message = fmt.Sprintf("%s\r\nHere's how to remove a user from the naughty list:", message)
 		message = fmt.Sprintf("%s\r\n```\r\n%sremovenaughtylist @Username\r\n", message, config.CommandPrefix)
 		message = fmt.Sprintf("%s\r\n  @Username: The Discord user you wish to remove from the naughty list", message)
+		message = fmt.Sprintf("%s\r\n```", message)
+	case "remindnaughtylist":
+		message = fmt.Sprintf("%s\r\nHere's how to set the naughty list reminder frequency:", message)
+		message = fmt.Sprintf("%s\r\n```\r\n%sremindnaughtylist Interval RandomFactor\r\n", message, config.CommandPrefix)
+		message = fmt.Sprintf("%s\r\n     Interval: The interval in minutes between messages", message)
+		message = fmt.Sprintf("%s\r\n RandomFactor: The factor (decimal value between 0 and 1 to randomise the interval by", message)
 		message = fmt.Sprintf("%s\r\n```", message)
 	case "addserver":
 		message = fmt.Sprintf("%s\r\nHere's how to add a server to EventsBot:", message)
@@ -183,7 +193,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 
 	// Test for correct number of arguments
 	if len(command) > 3 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with listing events, type the following:\r\n```%shelp listevents```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -199,7 +209,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 		} else if isDate(command[1]) {
 			specdate, _ = time.ParseInLocation("02/01/2006", command[1], defaultLocation)
 		} else {
-			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+			message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 			message = fmt.Sprintf("%s\r\nFor help with listing events, type the following:\r\n```%shelp listevents```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
@@ -211,56 +221,25 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 		if isUser(command[2]) {
 			listuser = m.Mentions[0].Username
 		} else {
-			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :anguished:")
+			message = "Whoah, not so sure about those arguments. EventsBot is confused :anguished:"
 			message = fmt.Sprintf("%s\r\nFor help with listing events, type the following:\r\n```%shelp listevents```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
 		}
 	}
 
-	filter := bson.M{}
-	filter["dateTime"] = bson.M{
-		"$gte": time.Now().Add(-1 * time.Hour),
-	}
-	if listuser != "all" {
-		filter["participants.userName"] = listuser
-	}
-	if !specdate.IsZero() {
-		filter["dateTime"] = bson.M{
-			"$gte": specdate,
-			"$lt":  specdate.AddDate(0, 0, 1),
-		}
-	}
-
-	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
-
-	var results []ClanEvent
-	sortopts := options.Find().SetSort(bson.D{{"dateTime", 1}})
-	cur, err := c.Find(context.Background(), filter, sortopts)
+	results, err := db.GetEvents(g.ID, listuser, specdate)
 	if err != nil {
-		fmt.Printf("Error reading events: %v\r\n", err)
-		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
-		return
-	}
-	if err = cur.All(context.TODO(), &results); err != nil {
-		fmt.Printf("Error decoding events: %v\r\n", err)
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
 	// Get all time zones
-	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
-	var tzs []TimeZone
-	tzLookup := make(map[string]TimeZone)
-	sortopts = options.Find().SetSort(bson.D{{"abbrev", 1}})
-	cur, err = ctz.Find(context.Background(), bson.D{}, sortopts)
+	tzLookup := make(map[string]database.TimeZone)
+	tzs, err := db.GetTimeZones(g.ID)
 	if err != nil {
-		fmt.Printf("Error reading timezones: %v\r\n", err)
-		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
-		return
-	}
-	if err = cur.All(context.TODO(), &tzs); err != nil {
-		fmt.Printf("Error decoding timezones: %v\r\n", err)
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -297,7 +276,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 					curEvent = fmt.Sprintf("%s %s,", curEvent, participant.DisplayName())
 				}
 				// Remove trailing comma
-				curEvent = fmt.Sprintf("%s", strings.TrimSuffix(curEvent, ","))
+				curEvent = strings.TrimSuffix(curEvent, ",")
 			}
 
 			// Add reserves to message
@@ -308,7 +287,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 					curEvent = fmt.Sprintf("%s %s,", curEvent, reserve.DisplayName())
 				}
 				// Remove trailing comma
-				curEvent = fmt.Sprintf("%s", strings.TrimSuffix(curEvent, ","))
+				curEvent = strings.TrimSuffix(curEvent, ",")
 			}
 
 			// Add status to message
@@ -324,15 +303,9 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 
 			curEvent = fmt.Sprintf("%s\r\n```", curEvent)
 
-			// Ensure that the message don't grow to over 2000 characters. If it does, post it as is and begin a new one for the rest of the events
-			// commented out to force each event to be posted as a separate message due to Discord changing the display of code blocks (messages between tripple backticks) on mobile app.
-			// if len(reply)+len(curEvent) > 1980 {
 			s.ChannelMessageSend(m.ChannelID, reply)
 
-			reply = ""
-			// }
-
-			reply = fmt.Sprintf("%s%s", reply, curEvent)
+			reply = curEvent
 		}
 	}
 
@@ -346,45 +319,36 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 
 	// Test for correct number of arguments
 	if len(command) != 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with getting the details of an event, type the following:\r\n```%shelp details```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
 	// Find event in DB
-	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
-
-	var event ClanEvent
-	rslt := c.FindOne(context.Background(), bson.M{"eventId": command[1]})
-	if rslt.Err() != nil {
-		fmt.Printf("Error reading event: %v", rslt.Err())
+	event, err := db.GetEvent(g.ID, command[1])
+	if err == ErrNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
-	}
-	err := rslt.Decode(&event)
-	if err != nil {
-		fmt.Printf("Error decoding event: %v", err)
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
 
 	// Get time zone
 	tzInfo := ""
 	eventLocation := defaultLocation
-	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
 	if event.TimeZone != "" {
-		var tz TimeZone
-		rslt := ctz.FindOne(context.Background(), bson.M{"abbrev": event.TimeZone})
-		if rslt.Err() != nil {
-			fmt.Printf("Error reading timezone: %v", rslt.Err())
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:"))
+		tz, err := db.GetTimeZone(g.ID, event.TimeZone)
+		if err == ErrNoRecords {
+			message = fmt.Sprintf("Say what? %s? EventsBot doesn't know any such time zone.", tz)
+			message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
+			s.ChannelMessageSend(m.ChannelID, message)
 			return
-		}
-		err := rslt.Decode(&tz)
-		if err != nil {
-			fmt.Printf("Error decoding timezone: %v", err)
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:"))
+		} else if err != nil {
+			fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+			s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:")
 			return
 		}
 
@@ -425,13 +389,13 @@ func New(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, c
 	newid := getEventID(time.Now())
 	gv, ok := guildVars[g.ID]
 	if !ok {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble obtaining the guild information :no_mouth:"))
+		s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
 	}
 	curUser := gv.impersonated
 	year, month, day := time.Now().Date()
 	if curUser.UserName == "" {
-		curUser = ClanUser{
+		curUser = database.ClanUser{
 			UserName: m.Author.Username,
 			UserID:   m.Author.ID,
 			Nickname: getNickname(g, s, m.Author.ID),
@@ -443,13 +407,13 @@ func New(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, c
 
 	// Test for name
 	if len(eventName) > 50 {
-		message := fmt.Sprintf("That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:")
+		message := "That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:"
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp new```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
-	event := ClanEvent{
+	event := database.ClanEvent{
 		EventID:  newid,
 		Creator:  curUser,
 		Name:     eventName,
@@ -494,7 +458,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		descrNdx = 6
 		teamNdx = 7
 	default:
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -516,28 +480,21 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		locAbbr = strings.TrimSuffix(locAbbr, ")")
 
 		// Check if timezone is known
-		ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
-		var tz TimeZone
-		rslt := ctz.FindOne(context.Background(), bson.M{"abbrev": locAbbr})
-		if rslt.Err() != nil {
-			fmt.Printf("Error reading timezone: %v", rslt.Err())
-			message = fmt.Sprintf("EventsBot doesn't know that %s time zone. Can we stick to time zones on earth please?", command[tzNdx])
-			message = fmt.Sprintf("%s\r\nTo see a list of available time zones, type the following:\r\n```%slisttimezones```", message, config.CommandPrefix)
+		tz, err := db.GetTimeZone(g.ID, locAbbr)
+		if err == ErrNoRecords {
+			message = fmt.Sprintf("Say what? %s? EventsBot doesn't know any such time zone.", tz)
+			message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
-		}
-		err := rslt.Decode(&tz)
-		if err != nil {
-			fmt.Printf("Error decoding timezone: %v", err)
-			message = fmt.Sprintf("EventsBot doesn't know that %s time zone. Can we stick to time zones on earth please?", command[tzNdx])
-			message = fmt.Sprintf("%s\r\nTo see a list of available time zones, type the following:\r\n```%slisttimezones```", message, config.CommandPrefix)
-			s.ChannelMessageSend(m.ChannelID, message)
+		} else if err != nil {
+			fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+			s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to find the time zone. Sorry but EventsBot has no answers for you :cry:")
 			return
 		}
 
 		usrLocation, err = time.LoadLocation(tz.Location)
 		if err != nil {
-			message = fmt.Sprintf("EventsBot is having trouble working with this time zone. Are we anywhere near a worm hole perhaps? :no_mouth:")
+			message = "EventsBot is having trouble working with this time zone. Are we anywhere near a worm hole perhaps? :no_mouth:"
 			message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
@@ -556,7 +513,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		return
 	}
 	if dt.Before(time.Now()) {
-		message = fmt.Sprintf("Are you trying to create an event in the past? EventsBot has lost his flux capacitor :robot:")
+		message = "Are you trying to create an event in the past? EventsBot has lost his flux capacitor :robot:"
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -573,7 +530,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 
 	// Test for name
 	if len(command[nameNdx]) > 50 {
-		message = fmt.Sprintf("That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:")
+		message = "That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:"
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -581,7 +538,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 
 	// Test for description
 	if len(command[descrNdx]) > 150 {
-		message = fmt.Sprintf("That's a very long description right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 150 characters please. :triumph:")
+		message = "That's a very long description right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 150 characters please. :triumph:"
 		message = fmt.Sprintf("%s\r\nFor help with creating a new event, type the following:\r\n```%shelp newevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -599,7 +556,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 	newid := getEventID(time.Now())
 	curUser := guildVars[g.ID].impersonated
 	if curUser.UserName == "" {
-		curUser = ClanUser{
+		curUser = database.ClanUser{
 			UserName: m.Author.Username,
 			UserID:   m.Author.ID,
 			Nickname: getNickname(g, s, m.Author.ID),
@@ -607,7 +564,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		}
 	}
 
-	newEvent := ClanEvent{
+	newEvent := database.ClanEvent{
 		EventID:     newid,
 		Creator:     curUser,
 		DateTime:    dt,
@@ -619,9 +576,9 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 		Full:        false,
 	}
 
-	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
-	_, err = c.InsertOne(context.Background(), newEvent)
+	err = db.NewEvent(g.ID, newEvent)
 	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -642,7 +599,7 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 
 	// Test for correct number of arguments
 	if len(command) < 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with editing an event, type the following:\r\n```%shelp edit```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -651,7 +608,7 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 	curUser := guildVars[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
-		curUser = ClanUser{
+		curUser = database.ClanUser{
 			UserName: m.Author.Username,
 			UserID:   m.Author.ID,
 			Nickname: getNickname(g, s, m.Author.ID),
@@ -660,19 +617,13 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 	}
 
 	// Find event in DB
-	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
-
-	var event ClanEvent
-	rslt := c.FindOne(context.Background(), bson.M{"eventId": command[1]})
-	if rslt.Err() != nil {
-		fmt.Printf("Error reading event: %v", rslt.Err())
+	event, err := db.GetEvent(g.ID, command[1])
+	if err == ErrNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
-	}
-	err := rslt.Decode(&event)
-	if err != nil {
-		fmt.Printf("Error decoding event: %v", err)
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
 
@@ -685,7 +636,7 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 	}
 
 	if !allowed {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to edit this event.\r\nEventsBot will not stand for this :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to edit this event.\r\nEventsBot will not stand for this :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with editing events, type the following:\r\n```%shelp edit```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -695,15 +646,25 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 	EditEvent(s, m, m.ChannelID, newMsg.ID, strings.ToUpper(command[1]))
 }
 
-// CancelEvent is used to delete a specified event
-// ~cancelevent EventID
-func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+// Rename is used to rename an existing event
+// ~rename EventID Name
+func Rename(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
 	// Test for correct number of arguments
-	if len(command) != 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
-		message = fmt.Sprintf("%s\r\nFor help with cancelling an event, type the following:\r\n```%shelp cancelevent```", message, config.CommandPrefix)
+	if len(command) < 3 {
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
+		message = fmt.Sprintf("%s\r\nFor help with editing an event, type the following:\r\n```%shelp edit```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	newName := strings.Join(command[2:], " ")
+
+	// Test for name
+	if len(newName) > 50 {
+		message := "That's a very long name right there. You realise EventsBot has to memorise these things? Have a heart and keep it under 50 characters please. :triumph:"
+		message = fmt.Sprintf("%s\r\nFor help with renaming an new event, type the following:\r\n```%shelp rename```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
@@ -711,7 +672,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	curUser := guildVars[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
-		curUser = ClanUser{
+		curUser = database.ClanUser{
 			UserName: m.Author.Username,
 			UserID:   m.Author.ID,
 			Nickname: getNickname(g, s, m.Author.ID),
@@ -720,19 +681,13 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	}
 
 	// Find event in DB
-	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
-
-	var event ClanEvent
-	rslt := c.FindOne(context.Background(), bson.M{"eventId": command[1]})
-	if rslt.Err() != nil {
-		fmt.Printf("Error reading event: %v", rslt.Err())
+	event, err := db.GetEvent(g.ID, command[1])
+	if err == ErrNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
-	}
-	err := rslt.Decode(&event)
-	if err != nil {
-		fmt.Printf("Error decoding event: %v", err)
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
 
@@ -745,15 +700,81 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	}
 
 	if !allowed {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to cancel this event.\r\nEventsBot will not stand for this :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to rename this event.\r\nEventsBot will not stand for this :point_up:"
+		message = fmt.Sprintf("%s\r\nFor help with renaming events, type the following:\r\n```%shelp rename```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	oldName := event.Name
+	event.Name = newName
+
+	// Update event
+	err = db.UpdateEvent(g.ID, *event)
+	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to rename this event. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+
+	message = fmt.Sprintf("Alright pay attention! %s's event, %s, shall henceforth be called %s.", event.Creator.Mention(), oldName, newName)
+	s.ChannelMessageSend(m.ChannelID, message)
+}
+
+// CancelEvent is used to delete a specified event
+// ~cancelevent EventID
+func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	message := ""
+
+	// Test for correct number of arguments
+	if len(command) != 2 {
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
+		message = fmt.Sprintf("%s\r\nFor help with cancelling an event, type the following:\r\n```%shelp cancelevent```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	curUser := guildVars[g.ID].impersonated
+	curUser.DateTime = time.Now()
+	if curUser.UserName == "" {
+		curUser = database.ClanUser{
+			UserName: m.Author.Username,
+			UserID:   m.Author.ID,
+			Nickname: getNickname(g, s, m.Author.ID),
+			DateTime: time.Now(),
+		}
+	}
+
+	// Find event in DB
+	event, err := db.GetEvent(g.ID, command[1])
+	if err == ErrNoRecords {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+		return
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
+		return
+	}
+
+	// Check that user has permissions
+	allowed := false
+	if event.Creator.UserName == curUser.UserName {
+		allowed = true
+	} else if hasRole(g, s, m, "EventsBotAdmin") {
+		allowed = true
+	}
+
+	if !allowed {
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to cancel this event.\r\nEventsBot will not stand for this :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with cancelling events, type the following:\r\n```%shelp cancelevent```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
 	// Delete record
-	_, err = c.DeleteOne(context.Background(), bson.M{"eventId": command[1]})
+	err = db.DeleteEvent(g.ID, command[1])
 	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -773,7 +794,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 	curUser := guildVars[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
-		curUser = ClanUser{
+		curUser = database.ClanUser{
 			UserName: m.Author.Username,
 			UserID:   m.Author.ID,
 			Nickname: getNickname(g, s, m.Author.ID),
@@ -781,10 +802,10 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 		}
 	}
 
-	signupUsers := []ClanUser{}
+	signupUsers := []database.ClanUser{}
 
 	if len(command) < 2 {
-		message = fmt.Sprintf("Come on! Surely you're not expecting me to guess which event you're trying to sign up to :confused:")
+		message = "Come on! Surely you're not expecting me to guess which event you're trying to sign up to :confused:"
 		message = fmt.Sprintf("%s\r\nFor help with signing up to events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -797,7 +818,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 				// Find user in list of mentions
 				for _, mentionedUser := range m.Mentions {
 					if strings.Replace(command[i], "!", "", 1) == mentionedUser.Mention() {
-						signupUser := ClanUser{
+						signupUser := database.ClanUser{
 							UserName: mentionedUser.Username,
 							UserID:   mentionedUser.ID,
 							Nickname: getNickname(g, s, mentionedUser.ID),
@@ -807,7 +828,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 					}
 				}
 			} else {
-				message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+				message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 				message = fmt.Sprintf("%s\r\n%s doesn't look like anyone I recognise.", message, command[i])
 				message = fmt.Sprintf("%s\r\nFor help with signing up to events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)
 				s.ChannelMessageSend(m.ChannelID, message)
@@ -819,19 +840,13 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 	}
 
 	// Find event in DB
-	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
-
-	var event ClanEvent
-	rslt := c.FindOne(context.Background(), bson.M{"eventId": command[1]})
-	if rslt.Err() != nil {
-		fmt.Printf("Error reading event: %v", rslt.Err())
+	event, err := db.GetEvent(g.ID, command[1])
+	if err == ErrNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
-	}
-	err := rslt.Decode(&event)
-	if err != nil {
-		fmt.Printf("Error decoding event: %v", err)
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
 
@@ -845,7 +860,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 		}
 
 		if !allowed {
-			message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to sign other users up to events.\r\nEventsBot will not stand for this :point_up:")
+			message = "Yo yo yo. Back up a second dude. You don't have permissions to sign other users up to events.\r\nEventsBot will not stand for this :point_up:"
 			message = fmt.Sprintf("%s\r\nFor help with signing up to events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
@@ -913,10 +928,9 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 		}
 	}
 
-	event.ObjectID = primitive.NilObjectID
-	_, err = c.ReplaceOne(context.Background(), bson.M{"eventId": command[1]}, event)
+	err = db.UpdateEvent(g.ID, *event)
 	if err != nil {
-		fmt.Printf("error updating event: %v", err)
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -929,8 +943,8 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	message := ""
 
 	// Test for correct number of arguments
-	if len(command) > 3 || len(command) < 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+	if len(command) < 2 {
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with leaving an event, type the following:\r\n```%shelp leave```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -939,7 +953,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	curUser := guildVars[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
-		curUser = ClanUser{
+		curUser = database.ClanUser{
 			UserName: m.Author.Username,
 			UserID:   m.Author.ID,
 			Nickname: getNickname(g, s, m.Author.ID),
@@ -949,17 +963,24 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 
 	removeUser := curUser
 
-	// Check first argument
+	// Check specified user name
 	if len(command) > 2 {
-		if isUser(command[2]) {
-			removeUser = ClanUser{
+		userName := strings.Join(command[2:], " ")
+		if isUser(userName) {
+			removeUser = database.ClanUser{
 				UserName: m.Mentions[0].Username,
 				UserID:   m.Mentions[0].ID,
 				Nickname: getNickname(g, s, m.Mentions[0].ID),
 				DateTime: time.Now(),
 			}
+		} else if strings.HasPrefix(userName, "@") {
+			removeUser = database.ClanUser{
+				UserName:           userName[1:],
+				Nickname:           userName[1:],
+				Mention_deprecated: userName[1:],
+			}
 		} else {
-			message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+			message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 			message = fmt.Sprintf("%s\r\nFor help with signing up to events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
@@ -967,19 +988,13 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	}
 
 	// Find event in DB
-	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
-
-	var event ClanEvent
-	rslt := c.FindOne(context.Background(), bson.M{"eventId": command[1]})
-	if rslt.Err() != nil {
-		fmt.Printf("Error reading event: %v", rslt.Err())
+	event, err := db.GetEvent(g.ID, command[1])
+	if err == ErrNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
-	}
-	err := rslt.Decode(&event)
-	if err != nil {
-		fmt.Printf("Error decoding event: %v", err)
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
 
@@ -993,7 +1008,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 		}
 
 		if !allowed {
-			message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to remove other users from events.\r\nEventsBot will not stand for this :point_up:")
+			message = "Yo yo yo. Back up a second dude. You don't have permissions to remove other users from events.\r\nEventsBot will not stand for this :point_up:"
 			message = fmt.Sprintf("%s\r\nFor help with leaving events, type the following:\r\n```%shelp signup```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
@@ -1003,7 +1018,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	// Check if user is in fact signed up for this event
 	participantIndex := -1
 	for i, participant := range event.Participants {
-		if participant.UserName == removeUser.UserName {
+		if participant.UserName == removeUser.UserName || participant.Nickname == removeUser.Nickname {
 			participantIndex = i
 		}
 	}
@@ -1016,7 +1031,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 		// Move first reserve into participants
 		if len(event.Reserves) > 0 {
 			message = fmt.Sprintf("%s\r\nBut hey! %s is on reserve so we're golden.\r\nEventsBot is relieved :relieved:", message, event.Reserves[0].Mention())
-			reserve := ClanUser{
+			reserve := database.ClanUser{
 				UserName: event.Reserves[0].UserName,
 				UserID:   event.Reserves[0].UserID,
 				Nickname: event.Reserves[0].Nickname,
@@ -1025,8 +1040,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 			event.Participants = append(event.Participants, reserve)
 			event.Reserves = append(event.Reserves[:0], event.Reserves[0+1:]...)
 
-			event.ObjectID = primitive.NilObjectID
-			_, err = c.ReplaceOne(context.Background(), bson.M{"eventId": command[1]}, event)
+			err = db.UpdateEvent(g.ID, *event)
 			if err != nil {
 				s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 				return
@@ -1063,12 +1077,13 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 		return
 	}
 
-	event.ObjectID = primitive.NilObjectID
-	_, err = c.ReplaceOne(context.Background(), bson.M{"eventId": command[1]}, event)
+	err = db.UpdateEvent(g.ID, *event)
 	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
+
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
@@ -1078,7 +1093,7 @@ func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	message := ""
 
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to impersonate other users.\r\nEventsBot will not stand for this :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to impersonate other users.\r\nEventsBot will not stand for this :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with impersonating users, type the following:\r\n```%shelp impersonate```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1086,7 +1101,7 @@ func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Test for correct number of arguments
 	if len(command) > 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with impersonating users, type the following:\r\n```%shelp impersonate```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1094,13 +1109,13 @@ func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Check first argument
 	if !isUser(command[1]) {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 		message = fmt.Sprintf("%s\r\nFor help with impersonating users, type the following:\r\n```%shelp impersonate```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
-	user := ClanUser{
+	user := database.ClanUser{
 		UserName: m.Mentions[0].Username,
 		UserID:   m.Mentions[0].ID,
 		Nickname: getNickname(g, s, m.Mentions[0].ID),
@@ -1113,14 +1128,14 @@ func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 // Unimpersonate is used to return to the original user's identity after impersonating another user
 func Unimpersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-	guildVars[g.ID].impersonated = ClanUser{}
+	guildVars[g.ID].impersonated = database.ClanUser{}
 	s.ChannelMessageSend(m.ChannelID, "No more of this impersonation business!")
 }
 
 // Echo simply repeats the user's message
 func Echo(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	s.ChannelMessageDelete(m.ChannelID, m.ID)
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(strings.Join(command[1:], " ")))
+	s.ChannelMessageSend(m.ChannelID, strings.Join(command[1:], " "))
 }
 
 // Test is used to simply check that the bot is online and responding
@@ -1140,23 +1155,23 @@ func AddNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 
 	// Test for correct number of arguments
 	if len(command) != 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a user to the naughty list, type the following:\r\n```%shelp addnaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
-	var addUser ClanUser
+	var addUser database.ClanUser
 	// Check first argument
 	if isUser(command[1]) {
-		addUser = ClanUser{
+		addUser = database.ClanUser{
 			UserName: m.Mentions[0].Username,
 			UserID:   m.Mentions[0].ID,
 			Nickname: getNickname(g, s, m.Mentions[0].ID),
 			DateTime: time.Now(),
 		}
 	} else {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a user to the naughty list, type the following:\r\n```%shelp addnaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1164,21 +1179,15 @@ func AddNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to add users to the naughty list.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to add users to the naughty list.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a user to the naughty list, type the following:\r\n```%shelp addnaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
-	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("NaughtyList")
-	filter := bson.M{"userName": addUser.UserName}
-	_, err := c.ReplaceOne(
-		context.Background(),
-		filter,
-		addUser,
-		options.Replace().SetUpsert(true),
-	)
+	err := db.AddNaughtyList(g.ID, addUser)
 	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to add %s to the naughty list. Sorry but EventsBot has no answers for you :cry:", addUser.DisplayName()))
 		return
 	}
@@ -1193,23 +1202,23 @@ func RemoveNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 
 	// Test for correct number of arguments
 	if len(command) != 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with removing a user from the naughty list, type the following:\r\n```%shelp removenaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
-	var removeUser ClanUser
+	var removeUser database.ClanUser
 	// Check first argument
 	if isUser(command[1]) {
-		removeUser = ClanUser{
+		removeUser = database.ClanUser{
 			UserName: m.Mentions[0].Username,
 			UserID:   m.Mentions[0].ID,
 			Nickname: getNickname(g, s, m.Mentions[0].ID),
 			DateTime: time.Now(),
 		}
 	} else {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :confounded:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
 		message = fmt.Sprintf("%s\r\nFor help with removing a user from the naughty list, type the following:\r\n```%shelp removenaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1217,25 +1226,22 @@ func RemoveNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to remove users from the naughty list.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to remove users from the naughty list.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with removing a user from the naughty list, type the following:\r\n```%shelp removenaughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
-	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("NaughtyList")
-	filter := bson.M{"userName": removeUser.UserName}
-	info, err := c.DeleteMany(context.Background(), filter)
-	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the naughty list. Sorry but EventsBot has no answers for you :cry:", removeUser.DisplayName()))
-		return
+	err := db.RemoveNaughtyList(g.ID, removeUser)
+	if err == database.ErrNoDocuments {
+		message = fmt.Sprintf("What are you talking about? %s is not on the naughty list. :shrug:", removeUser.DisplayName())
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		message = fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the naughty list. Sorry but EventsBot has no answers for you :cry:", removeUser.DisplayName())
+	} else {
+		message = fmt.Sprintf("%s has been removed from the naughty list. Are we cool now? :kissing_heart:", removeUser.DisplayName())
 	}
 
-	if info.DeletedCount > 0 {
-		message = fmt.Sprintf("%s has been removed from the naughty list. Are we cool now? :kissing_heart:", removeUser.DisplayName())
-	} else {
-		message = fmt.Sprintf("What are you talking about? %s is not on the naughty list. :shrug:", removeUser.DisplayName())
-	}
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
@@ -1245,29 +1251,21 @@ func ListNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Test for correct number of arguments
 	if len(command) != 1 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with displaying the naughty list, type the following:\r\n```%shelp naughtylist```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
-	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("NaughtyList")
-	var users []ClanUser
-	sortopts := options.Find().SetSort(bson.D{{"userName", 1}})
-	cur, err := c.Find(context.Background(), bson.D{}, sortopts)
+	users, err := db.GetNaughtyList(g.ID)
 	if err != nil {
-		fmt.Printf("Error reading users: %v\r\n", err)
-		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the naughty list. Sorry but EventsBot has no answers for you :cry:")
-		return
-	}
-	if err = cur.All(context.TODO(), &users); err != nil {
-		fmt.Printf("Error decoding users: %v\r\n", err)
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the naughty list. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
 	if len(users) == 0 {
-		message = fmt.Sprintf("Naughty list? What naughty list? There's no one on any naughty list. :man_shrugging:")
+		message = "Naughty list? What naughty list? There's no one on any naughty list. :man_shrugging:"
 	} else {
 		message = "Well... Ahem..."
 		for _, user := range users {
@@ -1277,13 +1275,76 @@ func ListNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
+// RemindNaughty is used to set the frequency of how often the naughty list should be reprimanded
+func RemindNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
+	message := ""
+
+	// Test for correct number of arguments
+	if len(command) != 3 {
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
+		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Test that first argument is an integer
+	interval, err := strconv.ParseInt(command[1], 10, 64)
+	if err != nil {
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
+		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	randFact, err := strconv.ParseFloat(command[2], 64)
+	if err != nil {
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
+		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+	if randFact < 0 || randFact > 1 {
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
+		message = fmt.Sprintf("%s\r\nFor help with setting the nuahgty list reminder frequency, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	// Check that current user has permissions
+	if !hasRole(g, s, m, "EventsBotAdmin") {
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to set the naughty list reminder frequency.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:"
+		message = fmt.Sprintf("%s\r\nFor help with adding a user to the naughty list, type the following:\r\n```%shelp remindnaughtylist```", message, config.CommandPrefix)
+		s.ChannelMessageSend(m.ChannelID, message)
+		return
+	}
+
+	err = db.SetNaughtyListInterval(g.ID, interval, randFact)
+	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to set the naughty list reminder frequency. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+
+	gv, ok := guildVars[g.ID]
+	if !ok {
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to set the naughty list reminder frequency. Sorry but EventsBot has no answers for you :cry:")
+		return
+	}
+	gv.insultInterval = interval
+	gv.insultRndFact = randFact
+	gv.startInsultTimer()
+
+	message = fmt.Sprintf("The naughty list reminder frequency has been set to %s ±%0.0f%%", time.Duration(interval)*time.Minute, randFact*100)
+	s.ChannelMessageSend(m.ChannelID, message)
+}
+
 // AddServer is used to register a Discord server for ClanEvents to be able to run service functions for that server
 func AddServer(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
 	// Test for correct number of arguments
 	if len(command) != 1 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a server to EventsBot, type the following:\r\n```%shelp addserver```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1291,77 +1352,38 @@ func AddServer(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCre
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to register servers.\r\nEventsBot will not stand for this :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to register servers.\r\nEventsBot will not stand for this :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a server to EventsBot, type the following:\r\n```%shelp addserver```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
-	c1 := mongoClient.Database(fmt.Sprintf("ClanEvents")).Collection("Guilds")
-	var guild Guild
-	guild.ID = g.ID
-	guild.Name = g.Name
-	filter := bson.M{"discordId": guild.ID}
-	guild.ID = ""
-	_, err := c1.ReplaceOne(
-		context.Background(),
-		filter,
-		guild,
-		options.Replace().SetUpsert(true),
-	)
+	err := db.AddGuild(g.ID, g.Name, m.ChannelID)
 	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to register this server. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
-	c2 := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Config")
-	var config ClanConfig
-	config.DefaultChannel = m.ChannelID
-	filter = bson.M{}
-	_, err = c2.ReplaceOne(
-		context.Background(),
-		filter,
-		config,
-		options.Replace().SetUpsert(true),
-	)
-	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to register this server. Sorry but EventsBot has no answers for you :cry:")
-		return
-	}
-
-	c3 := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("Events")
-	index := mongo.IndexModel{
-		Keys: bson.M{
-			"eventId": 1,
-		},
-		Options: options.Index().SetUnique(true).SetBackground(true).SetSparse(true),
-	}
-
-	_, err = c3.Indexes().CreateOne(context.Background(), index)
-	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to register this server. Sorry but EventsBot has no answers for you :cry:")
-		return
-	}
-
-	message = fmt.Sprintf("%s has been registered with EventsBot", guild.Name)
+	message = fmt.Sprintf("%s has been registered with EventsBot", g.Name)
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
 // AddTimeZone is used to add capabilities for a time zone to ClanEvents
 func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-	var newTZ TimeZone
+	var newTZ database.TimeZone
 	message := ""
 
 	// Test for correct number of arguments
 	if len(command) < 3 || len(command) > 4 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 	if len(command) > 3 {
 		if len(command[3]) != 8 || utf8.RuneCountInString(command[3]) != 2 {
-			message = fmt.Sprintf("Huh? What kind of an emoji is that. Pick somethign better please :expressionless:")
+			message = "Huh? What kind of an emoji is that. Pick somethign better please :expressionless:"
 			message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 
@@ -1370,7 +1392,7 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to add time zones.\r\nYou don't look like you're from Gallifrey either :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to add time zones.\r\nYou don't look like you're from Gallifrey either :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1378,7 +1400,7 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	gv, ok := guildVars[g.ID]
 	if !ok {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble obtaining the guild information :no_mouth:"))
+		s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
 	}
 	newTZ, found := gv.tzByAbbr[command[1]]
@@ -1404,9 +1426,9 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		return
 	}
 
-	c := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
-	_, err = c.InsertOne(context.Background(), newTZ)
+	err = db.AddTimeZone(g.ID, newTZ)
 	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to add the time zone. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -1417,7 +1439,7 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	gv.tzByAbbr = tzBA
 	gv.tzByEmoji = tzBE
 
-	message = fmt.Sprintf("When you hear the signal it will be exactly %s, well in your newly registered timezone, %s, that is. Congrats... I guess.", time.Now().In(newLoc).Format("15:04"), newTZ.Abbrev)
+	message = fmt.Sprintf("When you hear the signal it will be %s exactly, well in your newly registered timezone, %s, that is. Congrats... I guess.", time.Now().In(newLoc).Format("15:04"), newTZ.Abbrev)
 
 	s.ChannelMessageSend(m.ChannelID, message)
 }
@@ -1428,7 +1450,7 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 
 	// Test for correct number of arguments
 	if len(command) != 2 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with removing a time zone, type the following:\r\n```%shelp removetimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1436,7 +1458,7 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to remove time zones.\r\nYou don't look like you're from Gallifrey either :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to remove time zones.\r\nYou don't look like you're from Gallifrey either :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1445,23 +1467,25 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 	// Get guild variables
 	gv, ok := guildVars[g.ID]
 	if !ok {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot had trouble obtaining the guild information :no_mouth:"))
+		s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
 	}
 
 	// Remove time zone from TimeZones collection
-	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
-	filter := bson.M{"abbrev": command[1]}
-	info, err := ctz.DeleteMany(context.Background(), filter)
-	if err != nil {
+	err := db.DeleteTimeZone(g.ID, command[1])
+	if err == ErrNoRecords {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Are you trying to glitch the universe? %s is not in the list of time zones. :shrug:", command[1]))
+		return
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the time zones. Sorry but EventsBot has no answers for you :cry:", command[1]))
 		return
 	}
 
 	// Remove all role time zones referencing this time zone from RoleTimeZones collection
-	crtz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("RoleTimeZones")
-	_, err = crtz.DeleteMany(context.Background(), filter)
+	err = db.DeleteRoleTimeZones(g.ID, command[1])
 	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the time zones. Sorry but EventsBot has no answers for you :cry:", command[1]))
 		return
 	}
@@ -1481,11 +1505,7 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 	gv.tzByAbbr = tzBA
 	gv.tzByEmoji = tzBE
 
-	if info.DeletedCount > 0 {
-		message = fmt.Sprintf("%s has been removed from the list of time zones. Your world just got smaller.", command[1])
-	} else {
-		message = fmt.Sprintf("Are you trying to glitch the universe? %s is not in the list of time zones. :shrug:", command[1])
-	}
+	message = fmt.Sprintf("%s has been removed from the list of time zones. Your world just got smaller.", command[1])
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
@@ -1495,38 +1515,22 @@ func ListTimeZones(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 
 	// Test for correct number of arguments
 	if len(command) != 1 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with listing time zones, type the following:\r\n```%shelp listtimezones```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	}
 
-	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
-	var timezones []TimeZone
-	sortopts := options.Find().SetSort(bson.D{{"abbrev", 1}})
-	cur, err := ctz.Find(context.Background(), bson.D{}, sortopts)
+	timezones, err := db.GetTimeZones(g.ID)
 	if err != nil {
-		fmt.Printf("Error reading timezones: %v\r\n", err)
-		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
-		return
-	}
-	if err = cur.All(context.TODO(), &timezones); err != nil {
-		fmt.Printf("Error decoding timezones: %v\r\n", err)
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
-	crtz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("RoleTimeZones")
-	var roletzs []ServerRoleTimeZone
-	sortopts = options.Find().SetSort(bson.D{{"serverRole", 1}})
-	cur, err = crtz.Find(context.Background(), bson.D{}, sortopts)
+	roletzs, err := db.GetRoleTimeZones(g.ID)
 	if err != nil {
-		fmt.Printf("Error reading role timezones: %v\r\n", err)
-		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
-		return
-	}
-	if err = cur.All(context.TODO(), &roletzs); err != nil {
-		fmt.Printf("Error decoding role timezones: %v\r\n", err)
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -1548,7 +1552,7 @@ func ListTimeZones(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 					s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to interpret the time zone icon. Sorry but EventsBot has no answers for you :cry:")
 					return
 				}
-				emojistr := string(bytearray[:len(bytearray)])
+				emojistr := string(bytearray[:])
 				message = fmt.Sprintf("%s %s\r\n", message, emojistr)
 			} else {
 				message = fmt.Sprintf("%s\r\n", message)
@@ -1572,7 +1576,7 @@ func RoleTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Message
 
 	// Test for correct number of arguments
 	if len(command) != 3 {
-		message = fmt.Sprintf("Whoah, not so sure about those arguments. EventsBot is confused :thinking:")
+		message = "Whoah, not so sure about those arguments. EventsBot is confused :thinking:"
 		message = fmt.Sprintf("%s\r\nFor help with linking a time zone to a server role, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1580,7 +1584,7 @@ func RoleTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Message
 
 	// Check that current user has permissions
 	if !hasRole(g, s, m, "EventsBotAdmin") {
-		message = fmt.Sprintf("Yo yo yo. Back up a second dude. You don't have permissions to link server roles to time zones.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:")
+		message = "Yo yo yo. Back up a second dude. You don't have permissions to link server roles to time zones.\r\nIf you're not careful then EventsBot might just add you to the naughty list :point_up:"
 		message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
@@ -1603,33 +1607,27 @@ func RoleTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Message
 
 	// Check that the time zone exists
 	tz := command[2]
-	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
-	rslt := ctz.FindOne(context.Background(), bson.M{"abbrev": tz})
-	if rslt.Err() != nil {
+	_, err := db.GetTimeZone(g.ID, tz)
+	if err == ErrNoRecords {
 		message = fmt.Sprintf("Say what? %s? EventsBot doesn't know any such time zone.", tz)
 		message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
-	}
-
-	// Link time zone to role
-	var srtz ServerRoleTimeZone
-	srtz.RoleName = roleName
-	srtz.Abbrev = tz
-	crtz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("RoleTimeZones")
-	filter := bson.M{"serverRole": roleName}
-	_, err := crtz.ReplaceOne(
-		context.Background(),
-		filter,
-		srtz,
-		options.Replace().SetUpsert(true),
-	)
-	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to link the %s timezone to the %s server role. Sorry but EventsBot has no answers for you :cry:", srtz.Abbrev, srtz.RoleName))
+	} else if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to find the time zone. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
-	message = fmt.Sprintf("Booyaa! EventsBot linked the %s time zone to the %s server role", srtz.Abbrev, srtz.RoleName)
+	// Link time zone to role
+	err = db.AddRoleTimeZone(g.ID, roleName, tz)
+	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to link the %s timezone to the %s server role. Sorry but EventsBot has no answers for you :cry:", tz, roleName))
+		return
+	}
+
+	message = fmt.Sprintf("Booyaa! EventsBot linked the %s time zone to the %s server role", tz, roleName)
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
@@ -1731,29 +1729,19 @@ func getLocation(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	retabbr := ""
 
 	// Start by getting all time zones and server role time zones
-	ctz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("TimeZones")
-	crtz := mongoClient.Database(fmt.Sprintf("ClanEvents%s", g.ID)).Collection("RoleTimeZones")
-	var tzs []TimeZone
-	var roletzs []ServerRoleTimeZone
-	tzLookup := make(map[string]TimeZone)
-
-	sortopts := options.Find().SetSort(bson.D{{"abbrev", 1}})
-	cur, err := ctz.Find(context.Background(), bson.D{}, sortopts)
+	tzs, err := db.GetTimeZones(g.ID)
 	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
 		return retloc, retabbr
 	}
-	if err = cur.All(context.TODO(), &tzs); err != nil {
-		return retloc, retabbr
-	}
-
-	sortopts = options.Find().SetSort(bson.D{{"serverRole", 1}})
-	cur, err = crtz.Find(context.Background(), bson.D{}, sortopts)
+	roletzs, err := db.GetRoleTimeZones(g.ID)
 	if err != nil {
+		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
 		return retloc, retabbr
 	}
-	if err = cur.All(context.TODO(), &roletzs); err != nil {
-		return retloc, retabbr
-	}
+	tzLookup := make(map[string]database.TimeZone)
 
 	for _, tz := range tzs {
 		tzLookup[tz.Abbrev] = tz

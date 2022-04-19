@@ -1,3 +1,4 @@
+//lint:file-ignore ST1018 Ignore all unicode characters in string literals
 package main
 
 import "strings"
