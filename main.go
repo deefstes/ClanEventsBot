@@ -105,8 +105,8 @@ func main() {
 	// Read config file
 	config, err = ReadConfig()
 	if err != nil {
-		fmt.Println("Error reading config file")
-		return
+		fmt.Println("FATAL", "reading config file", err)
+		os.Exit(1)
 	}
 
 	defaultLocation, _ = time.LoadLocation("Europe/London")
@@ -114,15 +114,15 @@ func main() {
 	// Connect to MongoDB
 	db, err = database.NewDatabase(config.MongoDB)
 	if err != nil {
-		fmt.Println("FATAL", "connecting to database: %v", err)
-		os.Exit(1)
+		fmt.Println("FATAL", "connecting to database:", err)
+		os.Exit(2)
 	}
 	defer db.Close()
 
 	guilds, err := db.GetGuilds()
 	if err != nil {
-		fmt.Println("FATAL", "reading guilds: %v", err)
-		os.Exit(1)
+		fmt.Println("FATAL", "reading guilds:", err)
+		os.Exit(3)
 	}
 	if len(guilds) == 0 {
 		fmt.Printf("No registered guilds\r\n")
@@ -135,8 +135,8 @@ func main() {
 	// Create a new Discord session using the provided bot token.
 	discordSession, err = discordgo.New("Bot " + config.Token)
 	if err != nil {
-		fmt.Println("ERROR", "creating Discord session,", err)
-		return
+		fmt.Println("FATAL", "creating Discord session:", err)
+		os.Exit(4)
 	}
 	defer discordSession.Close()
 
@@ -165,8 +165,8 @@ func main() {
 	// Open a websocket connection to Discord and begin listening.
 	err = discordSession.Open()
 	if err != nil {
-		fmt.Println("error opening connection,", err)
-		return
+		fmt.Println("FATAL", "opening Discord connection:", err)
+		os.Exit(5)
 	}
 
 	// Start HTTP listener for REST api
@@ -389,7 +389,7 @@ func deliverInsult(g *GuildVars) {
 	if err == ErrNoRecords {
 		return
 	} else if err != nil {
-		fmt.Println("ERROR", "delivering insult on guild %s: %v", g.guild.ID, err)
+		fmt.Println("ERROR", fmt.Sprintf("delivering insult on guild %s:", g.guild.ID), err)
 		return
 	}
 	message := getInsult(insultee.Mention())

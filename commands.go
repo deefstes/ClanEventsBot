@@ -230,7 +230,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 
 	results, err := db.GetEvents(g.ID, listuser, specdate)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -239,7 +239,7 @@ func ListEvents(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 	tzLookup := make(map[string]database.TimeZone)
 	tzs, err := db.GetTimeZones(g.ID)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -331,7 +331,7 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
@@ -347,7 +347,7 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
 		} else if err != nil {
-			fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+			fmt.Println("ERROR", "database:", err)
 			s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:")
 			return
 		}
@@ -487,7 +487,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 			s.ChannelMessageSend(m.ChannelID, message)
 			return
 		} else if err != nil {
-			fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+			fmt.Println("ERROR", "database:", err)
 			s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to find the time zone. Sorry but EventsBot has no answers for you :cry:")
 			return
 		}
@@ -578,7 +578,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 
 	err = db.NewEvent(g.ID, newEvent)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -622,7 +622,7 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
@@ -686,7 +686,7 @@ func Rename(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
@@ -712,7 +712,7 @@ func Rename(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 	// Update event
 	err = db.UpdateEvent(g.ID, *event)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to rename this event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -751,7 +751,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
@@ -774,7 +774,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	// Delete record
 	err = db.DeleteEvent(g.ID, command[1])
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to create this event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -845,7 +845,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
@@ -930,7 +930,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 
 	err = db.UpdateEvent(g.ID, *event)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -993,7 +993,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot feels that he should know event %s, but doesn't. Let's just pretend this never happened, okay? :flushed:", command[1]))
 		return
 	}
@@ -1079,7 +1079,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 
 	err = db.UpdateEvent(g.ID, *event)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to update the event. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -1187,7 +1187,7 @@ func AddNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCr
 
 	err := db.AddNaughtyList(g.ID, addUser)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to add %s to the naughty list. Sorry but EventsBot has no answers for you :cry:", addUser.DisplayName()))
 		return
 	}
@@ -1236,7 +1236,7 @@ func RemoveNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 	if err == database.ErrNoDocuments {
 		message = fmt.Sprintf("What are you talking about? %s is not on the naughty list. :shrug:", removeUser.DisplayName())
 	} else if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		message = fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the naughty list. Sorry but EventsBot has no answers for you :cry:", removeUser.DisplayName())
 	} else {
 		message = fmt.Sprintf("%s has been removed from the naughty list. Are we cool now? :kissing_heart:", removeUser.DisplayName())
@@ -1259,7 +1259,7 @@ func ListNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	users, err := db.GetNaughtyList(g.ID)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the naughty list. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -1320,7 +1320,7 @@ func RemindNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 
 	err = db.SetNaughtyListInterval(g.ID, interval, randFact)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to set the naughty list reminder frequency. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -1360,7 +1360,7 @@ func AddServer(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCre
 
 	err := db.AddGuild(g.ID, g.Name, m.ChannelID)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to register this server. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -1428,7 +1428,7 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	err = db.AddTimeZone(g.ID, newTZ)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to add the time zone. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -1477,7 +1477,7 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Are you trying to glitch the universe? %s is not in the list of time zones. :shrug:", command[1]))
 		return
 	} else if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the time zones. Sorry but EventsBot has no answers for you :cry:", command[1]))
 		return
 	}
@@ -1485,7 +1485,7 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 	// Remove all role time zones referencing this time zone from RoleTimeZones collection
 	err = db.DeleteRoleTimeZones(g.ID, command[1])
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to remove %s from the time zones. Sorry but EventsBot has no answers for you :cry:", command[1]))
 		return
 	}
@@ -1523,14 +1523,14 @@ func ListTimeZones(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 
 	timezones, err := db.GetTimeZones(g.ID)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
 
 	roletzs, err := db.GetRoleTimeZones(g.ID)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -1614,7 +1614,7 @@ func RoleTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Message
 		s.ChannelMessageSend(m.ChannelID, message)
 		return
 	} else if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to find the time zone. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
@@ -1622,7 +1622,7 @@ func RoleTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Message
 	// Link time zone to role
 	err = db.AddRoleTimeZone(g.ID, roleName, tz)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(":scream::scream::scream:Something very weird happened when trying to link the %s timezone to the %s server role. Sorry but EventsBot has no answers for you :cry:", tz, roleName))
 		return
 	}
@@ -1731,13 +1731,13 @@ func getLocation(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	// Start by getting all time zones and server role time zones
 	tzs, err := db.GetTimeZones(g.ID)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to read the events. Sorry but EventsBot has no answers for you :cry:")
 		return retloc, retabbr
 	}
 	roletzs, err := db.GetRoleTimeZones(g.ID)
 	if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to list the time zones. Sorry but EventsBot has no answers for you :cry:")
 		return retloc, retabbr
 	}
