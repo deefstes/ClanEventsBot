@@ -156,28 +156,6 @@ func main() {
 	for _, g := range guildVars {
 		g.startInsultTimer()
 		defer g.stopInsultTimer()
-		// if g.insultInterval == 0 {
-		// 	continue
-		// }
-
-		// d := time.Duration(g.insultInterval) * time.Minute
-		// dd := time.Duration(float64(d) * g.insultRndFact)
-		// fmt.Println("starting insult timer on guild", g.guild.ID, "to fire every", d, "±", dd)
-		// g.insultTicker = time.NewTicker(time.Duration(g.insultInterval) * time.Minute)
-		// defer g.insultTicker.Stop()
-		// go func(gv *GuildVars) {
-		// 	min := int(gv.insultInterval * (1 - gv.insultRndFact))
-		// 	max := int(gv.insultInterval * (1 + gv.insultRndFact))
-		// 	for range gv.insultTicker.C {
-		// 		// Set new random interval within specified bounds
-		// 		dur := time.Duration(max) * time.Minute
-		// 		if max != min {
-		// 			dur = time.Duration(rand.Intn(max-min)+min) * time.Minute
-		// 		}
-		// 		gv.insultTicker.Reset(dur)
-		// 		deliverInsult(gv)
-		// 	}
-		// }(g)
 	}
 
 	// Register the messageCreate and messageReact functions as callbacks for MessageCreate and MessageReactionAdd events.
@@ -190,6 +168,15 @@ func main() {
 		fmt.Println("error opening connection,", err)
 		return
 	}
+
+	// Start HTTP listener for REST api
+	// http.HandleFunc("/", catchAllHandler)
+	http.HandleFunc("/api/health", healthHandler)
+	fmt.Println("starting http listener on port", config.HttpPort)
+	go func() {
+		err := http.ListenAndServe(fmt.Sprintf(":%d", config.HttpPort), nil)
+		fmt.Println("ERROR", fmt.Sprintf("http listener: %v", err))
+	}()
 
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Press CTRL-C to exit")
