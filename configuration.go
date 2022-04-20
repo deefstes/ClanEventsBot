@@ -23,25 +23,25 @@ func ReadConfig() (Configuration, error) {
 	var AppConfig Configuration
 	exeFullPath, err := os.Executable()
 	if err != nil {
-		fmt.Printf("Error getting full executable path: %s", err.Error())
+		fmt.Println("Error getting full executable path:", err.Error())
 		return AppConfig, err
 	}
 
 	ExeDirPath, err := filepath.Abs(filepath.Dir(exeFullPath))
 	if err != nil {
-		fmt.Printf("Error getting absolute executable path: %s", err.Error())
+		fmt.Println("Error getting absolute executable path:", err.Error())
 		return AppConfig, err
 	}
 
 	yamlFile, err := ioutil.ReadFile(filepath.Join(ExeDirPath, "ClanEventsBot.yaml"))
 	if err != nil {
-		fmt.Printf("Error reading config file: %s", err.Error())
+		fmt.Println("Error reading config file:", err.Error())
 		return AppConfig, err
 	}
 
 	err = yaml.Unmarshal(yamlFile, &AppConfig)
 	if err != nil {
-		fmt.Printf("Error unmarshalling config file: %s", err.Error())
+		fmt.Println("Error unmarshalling config file:", err.Error())
 		return AppConfig, err
 	}
 

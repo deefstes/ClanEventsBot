@@ -479,7 +479,7 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 			s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. :grimacing:", eventID))
 			return
 		} else if err != nil {
-			fmt.Println("ERROR", fmt.Sprintf("database: %v", err))
+			fmt.Println("ERROR", "database:", err)
 			s.ChannelMessageSend(channelID, ":scream::scream::scream:Something very weird happened when trying to edit this event. Sorry but EventsBot has no answers for you :cry:")
 			return
 		}
