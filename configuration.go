@@ -17,6 +17,7 @@ type Configuration struct {
 	ServiceTimer  int64  `yaml:"ServiceTimer"`
 	DebugLevel    int    `yaml:"DebugLevel"`
 	HttpPort      int    `yaml:"HTTPPort"`
+	ApiKey        string `yaml:"APIKey"`
 }
 
 // ReadConfig reads system configuration from a YAML config file and returns a Configuration struct

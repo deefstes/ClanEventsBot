@@ -170,8 +170,10 @@ func main() {
 	}
 
 	// Start HTTP listener for REST api
-	// http.HandleFunc("/", catchAllHandler)
-	http.HandleFunc("/api/health", healthHandler)
+	http.HandleFunc("/", middlewareContentType(catchAllHandler))
+	http.HandleFunc("/api/health", middlewareContentType(healthHandler))
+	http.HandleFunc("/api/events", middlewareContentType(listEventsHandler))
+
 	fmt.Println("starting http listener on port", config.HttpPort)
 	go func() {
 		err := http.ListenAndServe(fmt.Sprintf(":%d", config.HttpPort), nil)
