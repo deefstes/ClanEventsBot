@@ -1001,7 +1001,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	// If different user is specified, check that current user has permissions
 	if removeUser != curUser {
 		allowed := false
-		if event.Creator.UserName == curUser.UserName {
+		if event.Creator.UserID == curUser.UserID {
 			allowed = true
 		} else if hasRole(g, s, m, "EventsBotAdmin") {
 			allowed = true
@@ -1018,8 +1018,15 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	// Check if user is in fact signed up for this event
 	participantIndex := -1
 	for i, participant := range event.Participants {
-		if participant.UserName == removeUser.UserName || participant.Nickname == removeUser.Nickname {
+		if participant.UserID == removeUser.UserID {
 			participantIndex = i
+		} else {
+			if removeUser.UserID == "" {
+				// removed user is no longer in the guild
+				if participant.UserName == removeUser.UserName || (removeUser.Nickname != "" && participant.Nickname == removeUser.Nickname) {
+					participantIndex = i
+				}
+			}
 		}
 	}
 
@@ -1057,8 +1064,15 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 	// Check if user is a reserve for this event
 	reserveIndex := -1
 	for i, reserve := range event.Reserves {
-		if reserve.UserName == removeUser.UserName {
+		if reserve.UserID == removeUser.UserID {
 			reserveIndex = i
+		} else {
+			if removeUser.UserID == "" {
+				// removed user is no longer in the guild
+				if reserve.UserName == removeUser.UserName || (removeUser.Nickname != "" && reserve.Nickname == removeUser.Nickname) {
+					reserveIndex = i
+				}
+			}
 		}
 	}
 
