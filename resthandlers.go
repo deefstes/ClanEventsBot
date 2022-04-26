@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -39,16 +38,7 @@ func catchAllHandler(w http.ResponseWriter, r *http.Request) {
 	buf.ReadFrom(r.Body)
 	body := buf.String()
 
-	rsp := struct {
-		Method        string
-		RequestUri    string
-		Url           *url.URL
-		ContentLength int64
-		Host          string
-		Proto         string
-		RemoteAddr    string
-		Body          string
-	}{
+	rsp := CatchAllResponse{
 		Method:        r.Method,
 		RequestUri:    r.RequestURI,
 		Url:           r.URL,
@@ -67,17 +57,29 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		JSONError(
 			w,
-			struct {
-				SupportedMethods []string `json:"supportedMethods"`
-			}{
-				SupportedMethods: []string{"GET"},
-			},
+			UnsupportedResponse{SupportedMethods: []string{"GET"}},
 			http.StatusMethodNotAllowed,
 		)
 		return
 	}
 
-	w.Write([]byte(`{"status": "ok"}`))
+	status := "ok"
+	var info string
+	d, err := db.Ping()
+	if err != nil {
+		status = "degraded"
+		info = err.Error()
+	}
+
+	rsp := HealthResponse{
+		Status:     status,
+		Info:       info,
+		DBResponse: d.String(),
+		LiveTime:   liveTime,
+		DebugLevel: config.DebugLevel,
+	}
+	j, _ := json.Marshal(rsp)
+	w.Write(j)
 }
 
 // GET /api/events?guildID={Guild_ID}
@@ -85,11 +87,7 @@ func listEventsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		JSONError(
 			w,
-			struct {
-				SupportedMethods []string `json:"supportedMethods"`
-			}{
-				SupportedMethods: []string{"GET"},
-			},
+			UnsupportedResponse{SupportedMethods: []string{"GET"}},
 			http.StatusMethodNotAllowed,
 		)
 		return

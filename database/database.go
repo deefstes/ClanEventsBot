@@ -61,6 +61,16 @@ func (db *Database) Close() {
 	db.client.Disconnect(db.ctx)
 }
 
+func (db *Database) Ping() (time.Duration, error) {
+	t1 := time.Now()
+	err := db.client.Ping(db.ctx, readpref.Primary())
+	if err != nil {
+		return time.Now().Sub(t1), fmt.Errorf("pinging mongodb: %w", err)
+	}
+
+	return time.Now().Sub(t1), nil
+}
+
 func (db *Database) AddGuild(guildID, guildName, defaultChannel string) error {
 	c1 := db.client.Database(fmt.Sprintf("ClanEvents")).Collection("Guilds")
 	var guild Guild
