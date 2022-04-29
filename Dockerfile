@@ -1,4 +1,4 @@
-FROM golang:1.18.1-alpine3.14 AS builder
+FROM golang:1.18.1-alpine3.15 AS builder
 
 # Set necessary environmet variables needed for our image
 ENV GO111MODULE=on \
@@ -28,14 +28,8 @@ WORKDIR /dist
 # Copy binary from build to main folder
 RUN cp /build/claneventsbot .
 
-## Export necessary port
-#EXPOSE ${PORT}
-#
-## Command to run when starting the container
-#CMD ["/dist/claneventsbot"]
-
 # Build a small image
-FROM scratch
+FROM alpine:3.15
 
 ENV PORT=8080
 

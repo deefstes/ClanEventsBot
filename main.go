@@ -109,6 +109,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	if config.DebugLevel > 1 {
+		fmt.Printf("%+v\r\n", config)
+	}
+
 	defaultLocation, _ = time.LoadLocation("Europe/London")
 
 	// Connect to MongoDB

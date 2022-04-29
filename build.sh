@@ -13,7 +13,7 @@ fi
 case $1 in
 	docker)
 		echo Building docker image, BuildNumber=$BuildNumber
-		docker build --build-arg BuildNumber=$BuildNumber -t claneventsbot:$BuildNumber .
+		docker build --build-arg BuildNumber=$BuildNumber -t claneventsbot:$BuildNumber -t claneventsbot:latest .
 		;;
 	win32)
 		echo Building ClanEventsBot32.exe, BuildNumber=$BuildNumber
