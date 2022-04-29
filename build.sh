@@ -1,8 +1,4 @@
 #!/bin/bash
-
-GOOS=windows
-GOARCH=amd64
-FileName=ClanEventsBot.exe
 BuildNumber=$(date +%y%m%d%H%M%S)
 
 if [ ! -z "$2" ]
@@ -11,31 +7,32 @@ then
 fi
 
 case $1 in
+	docker)
+		echo Building docker image, BuildNumber=$BuildNumber
+		docker build --build-arg BuildNumber=$BuildNumber -t claneventsbot:$BuildNumber .
+		;;
 	win32)
-		GOOS=windows
-		GOARCH=386
-		FileName=ClanEventsBot32.exe
+		echo Building ClanEventsBot32.exe, BuildNumber=$BuildNumber
+		GOOS=windows GOARCH=386 go build -o bin/ClanEventsBot32.exe -ldflags "-X main.buildNumber=$BuildNumber" *.go
 		;;
 	win64)
-		GOOS=windows
-		GOARCH=amd64
-		FileName=ClanEventsBot64.exe
+		echo Building ClanEventsBot64.exe, BuildNumber=$BuildNumber
+		GOOS=windows GOARCH=amd64 go build -o bin/ClanEventsBot64.exe -ldflags "-X main.buildNumber=$BuildNumber" *.go
 		;;
 	linux32)
-		GOOS=linux
-		GOARCH=386
-		FileName=ClanEventsBot32
+		echo Building ClanEventsBot32, BuildNumber=$BuildNumber
+		GOOS=linux GOARCH=386 go build -o bin/ClanEventsBot32 -ldflags "-X main.buildNumber=$BuildNumber" *.go
 		;;
 	linux64)
-		GOOS=linux
-		GOARCH=amd64
-		FileName=ClanEventsBot64
+		echo Building ClanEventsBot64, BuildNumber=$BuildNumber
+		GOOS=linux GOARCH=amd64 go build -o bin/ClanEventsBot64 -ldflags "-X main.buildNumber=$BuildNumber" *.go
 		;;
 	all)
 		;;
 	*)
 		echo "Invalid OS and Architecture specified ($1)"
 		echo Accepted Values:
+		echo docker
 		echo win32
 		echo win64
 		echo linux32
@@ -67,8 +64,4 @@ then
 		./$0 $platform $BuildNumber
 		((counter++))
 	done
-else
-	echo Building $FileName, BuildNumber=$BuildNumber
-	GOOS=$GOOS GOARCH=$GOARCH go build -o bin/$FileName -ldflags "-X main.buildNumber=$BuildNumber" *.go
 fi
-cp ClanEventsBot.yaml bin
