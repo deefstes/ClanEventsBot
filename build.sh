@@ -1,5 +1,9 @@
 #!/bin/bash
-BuildNumber=$(date +%y%m%d%H%M%S)
+
+# Use git describe to set build number
+BuildNumber=$(git describe --tags --dirty --always)
+# Remove leading v from buildnumber if in the format v1.2.3
+BuildNumber=$(sed -E "s|v([[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)|\1|" <<< $BuildNumber)
 
 if [ ! -z "$2" ]
 then
