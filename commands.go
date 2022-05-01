@@ -1433,11 +1433,17 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	newLoc, err := time.LoadLocation(newTZ.Location)
 	if err != nil {
+		if config.DebugLevel >= 0 {
+			fmt.Println("ERROR", "time.LoadLocation()", err.Error())
+		}
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot is not so sure about that location. %s. Maybe you should double check that.", newTZ.Location))
 		return
 	}
 	_, err = time.ParseInLocation("02/01/2006 15:04", "24/10/1975 12:00", newLoc)
 	if err != nil {
+		if config.DebugLevel >= 0 {
+			fmt.Println("ERROR", "time.ParseInLocation()", err.Error())
+		}
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot is not so sure about that location. %s. Maybe you should double check that.", newTZ.Location))
 		return
 	}

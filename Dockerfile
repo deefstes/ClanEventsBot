@@ -31,6 +31,9 @@ RUN cp /build/claneventsbot .
 # Build a small image
 FROM alpine:3.15
 
+# Add time zone data which is missing from alpine
+RUN apk update && apk add bash && apk --no-cache add tzdata
+
 ENV PORT=8080
 
 COPY --from=builder /dist/claneventsbot /
