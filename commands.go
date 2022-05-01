@@ -1372,12 +1372,14 @@ func AddServer(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCre
 		return
 	}
 
-	err := db.AddGuild(g.ID, g.Name, m.ChannelID)
+	guild, err := db.AddGuild(g.ID, g.Name, m.ChannelID)
 	if err != nil {
 		fmt.Println("ERROR", "database:", err)
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to register this server. Sorry but EventsBot has no answers for you :cry:")
 		return
 	}
+
+	guildVars[g.ID] = GetGuildVars(guild)
 
 	message = fmt.Sprintf("%s has been registered with EventsBot", g.Name)
 	s.ChannelMessageSend(m.ChannelID, message)

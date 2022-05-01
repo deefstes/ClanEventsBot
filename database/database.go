@@ -71,7 +71,7 @@ func (db *Database) Ping() (time.Duration, error) {
 	return time.Now().Sub(t1), nil
 }
 
-func (db *Database) AddGuild(guildID, guildName, defaultChannel string) error {
+func (db *Database) AddGuild(guildID, guildName, defaultChannel string) (Guild, error) {
 	c1 := db.client.Database(fmt.Sprintf("ClanEvents")).Collection("Guilds")
 	var guild Guild
 	guild.ID = guildID
@@ -85,7 +85,7 @@ func (db *Database) AddGuild(guildID, guildName, defaultChannel string) error {
 		options.Replace().SetUpsert(true),
 	)
 	if err != nil {
-		return fmt.Errorf("ClanEvents.Guilds.ReplaceOne(): %w", err)
+		return guild, fmt.Errorf("ClanEvents.Guilds.ReplaceOne(): %w", err)
 	}
 
 	c2 := db.client.Database(fmt.Sprintf("ClanEvents%s", guildID)).Collection("Config")
@@ -99,7 +99,7 @@ func (db *Database) AddGuild(guildID, guildName, defaultChannel string) error {
 		options.Replace().SetUpsert(true),
 	)
 	if err != nil {
-		return fmt.Errorf("ClanEvents%s.Config.ReplaceOne(): %w", guildID, err)
+		return guild, fmt.Errorf("ClanEvents%s.Config.ReplaceOne(): %w", guildID, err)
 	}
 
 	c3 := db.client.Database(fmt.Sprintf("ClanEvents%s", guildID)).Collection("Events")
@@ -112,10 +112,10 @@ func (db *Database) AddGuild(guildID, guildName, defaultChannel string) error {
 
 	_, err = c3.Indexes().CreateOne(db.ctx, index)
 	if err != nil {
-		return fmt.Errorf("ClanEvents%s.Events.Indexes.CreateOne(): %w", guildID, err)
+		return guild, fmt.Errorf("ClanEvents%s.Events.Indexes.CreateOne(): %w", guildID, err)
 	}
 
-	return nil
+	return guild, nil
 }
 
 func (db *Database) GetGuilds() ([]Guild, error) {
