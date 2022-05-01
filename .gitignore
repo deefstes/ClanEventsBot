@@ -3,3 +3,5 @@ bin/
 
 # VSCode
 .vscode
+
+rundocker.sh
