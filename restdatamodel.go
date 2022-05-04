@@ -5,14 +5,14 @@ import (
 	"time"
 )
 
-type UnsupportedResponse struct {
+type unsupportedResponse struct {
 	SupportedMethods []string `json:"supportedMethods,omitempty"`
 }
 
-type CatchAllResponse struct {
+type catchAllResponse struct {
 	Method        string   `json:"method,omitempty"`
-	RequestUri    string   `json:"requestUri,omitempty"`
-	Url           *url.URL `json:"url,omitempty"`
+	RequestURI    string   `json:"requestUri,omitempty"`
+	URL           *url.URL `json:"url,omitempty"`
 	ContentLength int64    `json:"contentLength,omitempty"`
 	Host          string   `json:"host,omitempty"`
 	Proto         string   `json:"proto,omitempty"`
@@ -20,7 +20,7 @@ type CatchAllResponse struct {
 	Body          string   `json:"body,omitempty"`
 }
 
-type HealthResponse struct {
+type healthResponse struct {
 	Status     string    `json:"status,omitempty"`
 	Info       string    `json:"info,omitempty"`
 	DBResponse string    `json:"databaseResponse,omitempty"`

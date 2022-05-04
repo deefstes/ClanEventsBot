@@ -8,29 +8,29 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type EventState int
+type eventState int
 
 const (
-	stateNew      EventState = 0
-	stateDate     EventState = 1
-	stateTime     EventState = 2
-	stateTimeZone EventState = 3
-	stateDuration EventState = 4
-	stateTeamSize EventState = 5
-	stateDone     EventState = 6
+	stateNew      eventState = 0
+	stateDate     eventState = 1
+	stateTime     eventState = 2
+	stateTimeZone eventState = 3
+	stateDuration eventState = 4
+	stateTeamSize eventState = 5
+	stateDone     eventState = 6
 )
 
-type DevelopingEvent struct {
+type developingEvent struct {
 	MessageID      string
 	TriggerMessage *discordgo.MessageCreate
-	State          EventState
+	State          eventState
 	Event          database.ClanEvent
 	Committed      bool
 }
 
+//gocyclo:ignore
 // ShowDevelopingEvent is used to display the progress of an interactive new event
-//func ShowDevelopingEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, newEvent DevelopingEvent) {
-func ShowDevelopingEvent(s *discordgo.Session, m *discordgo.MessageCreate, channel string, newEvent DevelopingEvent) {
+func ShowDevelopingEvent(s *discordgo.Session, m *discordgo.MessageCreate, channel string, newEvent developingEvent) {
 	message := ""
 
 	// Get channel
@@ -41,7 +41,7 @@ func ShowDevelopingEvent(s *discordgo.Session, m *discordgo.MessageCreate, chann
 	}
 
 	// Get guild variables
-	gv, ok := guildVars[c.GuildID]
+	gv, ok := guildVarsMap[c.GuildID]
 	if !ok {
 		s.ChannelMessageSend(channel, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
@@ -216,6 +216,7 @@ func ShowDevelopingEvent(s *discordgo.Session, m *discordgo.MessageCreate, chann
 	}
 }
 
+//gocyclo:ignore
 // ProcessReaction is used to respond to reactions added by the user to an interactive new event
 func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 
@@ -227,7 +228,7 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 	}
 
 	// Find message in EscrowEvents
-	gv, ok := guildVars[c.GuildID]
+	gv, ok := guildVarsMap[c.GuildID]
 	if !ok {
 		return
 	}
@@ -415,7 +416,7 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 }
 
 // CommitEvent is used to move an event from Escrow to the DB
-func CommitEvent(s *discordgo.Session, channelID string, newEvent DevelopingEvent) {
+func CommitEvent(s *discordgo.Session, channelID string, newEvent developingEvent) {
 	// Get channel
 	channel, err := s.Channel(channelID)
 	if err != nil {
@@ -457,7 +458,7 @@ func CommitEvent(s *discordgo.Session, channelID string, newEvent DevelopingEven
 // EditEvent is used to change the details of an event
 func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID string, messageID string, eventID string) {
 
-	var developingEvent DevelopingEvent
+	var devEvt developingEvent
 
 	// Get channel
 	c, err := s.Channel(channelID)
@@ -467,7 +468,7 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 	}
 
 	// Find message in EscrowEvents
-	gv, ok := guildVars[c.GuildID]
+	gv, ok := guildVarsMap[c.GuildID]
 	if !ok {
 		return
 	}
@@ -475,7 +476,7 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 	if !ok {
 		// If no event is found in escrow for the specified message, it could mean that it's referring to an event already in the db and needs to be pulled from there
 		event, err := db.GetEvent(c.GuildID, eventID)
-		if err == ErrNoRecords {
+		if err == errNoRecords {
 			s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. :grimacing:", eventID))
 			return
 		} else if err != nil {
@@ -484,7 +485,7 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 			return
 		}
 
-		newEvent := DevelopingEvent{
+		newEvent := developingEvent{
 			TriggerMessage: m,
 			MessageID:      messageID,
 			State:          stateDone,
@@ -492,9 +493,9 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 			Committed:      true,
 		}
 		gv.escrowEvents[messageID] = newEvent
-		developingEvent = newEvent
+		devEvt = newEvent
 	}
-	developingEvent, ok = gv.escrowEvents[messageID]
+	devEvt, ok = gv.escrowEvents[messageID]
 	if !ok {
 		s.ChannelMessageSend(channelID, "EventsBot had trouble interpreting the developing event. This is one of those things that should happen but then they do. :face_with_spiral_eyes:")
 		return
@@ -504,8 +505,8 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 	tzInfo := ""
 	eventLocation := defaultLocation
 
-	if developingEvent.Event.TimeZone != "" {
-		tz, ok := gv.tzByAbbr[developingEvent.Event.TimeZone]
+	if devEvt.Event.TimeZone != "" {
+		tz, ok := gv.tzByAbbr[devEvt.Event.TimeZone]
 		if !ok {
 			s.ChannelMessageSend(channelID, "EventsBot had trouble interpreting the time zone information of this event. Are we anywhere near a worm hole perhaps? :no_mouth:")
 			return
@@ -516,15 +517,15 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 
 	// Construct message
 	message := "EDIT EVENT"
-	message = fmt.Sprintf("%s\r\n**Creator:** %s", message, developingEvent.Event.Creator.Mention())
-	message = fmt.Sprintf("%s\r\n**Name:** %s", message, developingEvent.Event.Name)
-	message = fmt.Sprintf("%s\r\n**Date:** %s", message, developingEvent.Event.DateTime.In(eventLocation).Format("Mon 2 Jan 2006"))
-	message = fmt.Sprintf("%s\r\n**Time:** %s", message, developingEvent.Event.DateTime.In(eventLocation).Format("15:04"))
-	if developingEvent.Event.TimeZone != "" {
+	message = fmt.Sprintf("%s\r\n**Creator:** %s", message, devEvt.Event.Creator.Mention())
+	message = fmt.Sprintf("%s\r\n**Name:** %s", message, devEvt.Event.Name)
+	message = fmt.Sprintf("%s\r\n**Date:** %s", message, devEvt.Event.DateTime.In(eventLocation).Format("Mon 2 Jan 2006"))
+	message = fmt.Sprintf("%s\r\n**Time:** %s", message, devEvt.Event.DateTime.In(eventLocation).Format("15:04"))
+	if devEvt.Event.TimeZone != "" {
 		message = fmt.Sprintf("%s (%s)", message, tzInfo)
 	}
-	message = fmt.Sprintf("%s\r\n**Duration:** %d", message, developingEvent.Event.Duration)
-	message = fmt.Sprintf("%s\r\n**Team Size:** %d", message, developingEvent.Event.TeamSize)
+	message = fmt.Sprintf("%s\r\n**Duration:** %d", message, devEvt.Event.Duration)
+	message = fmt.Sprintf("%s\r\n**Team Size:** %d", message, devEvt.Event.TeamSize)
 	message = fmt.Sprintf("%s\r\n\r\nDoes the above appear correct?", message)
 	message = fmt.Sprintf("%s\r\n✅ = OK", message)
 	message = fmt.Sprintf("%s\r\n❌ = Cancel", message)
@@ -537,19 +538,19 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 	// Post or update message
 	if messageID == "" {
 		newMsg, _ := s.ChannelMessageSend(channelID, message)
-		gv.escrowEvents[newMsg.ID] = developingEvent
+		gv.escrowEvents[newMsg.ID] = devEvt
 	} else {
 		s.ChannelMessageEdit(channelID, messageID, "")
 		s.ChannelMessageEdit(channelID, messageID, message)
 	}
 
 	// Add appliccable reactions
-	s.MessageReactionsRemoveAll(channelID, developingEvent.MessageID)
-	s.MessageReactionAdd(channelID, developingEvent.MessageID, "✅")
-	s.MessageReactionAdd(channelID, developingEvent.MessageID, "❌")
-	s.MessageReactionAdd(channelID, developingEvent.MessageID, "🗓")
-	s.MessageReactionAdd(channelID, developingEvent.MessageID, "🕑")
-	s.MessageReactionAdd(channelID, developingEvent.MessageID, "🌍")
-	s.MessageReactionAdd(channelID, developingEvent.MessageID, "⏳")
-	s.MessageReactionAdd(channelID, developingEvent.MessageID, "👬")
+	s.MessageReactionsRemoveAll(channelID, devEvt.MessageID)
+	s.MessageReactionAdd(channelID, devEvt.MessageID, "✅")
+	s.MessageReactionAdd(channelID, devEvt.MessageID, "❌")
+	s.MessageReactionAdd(channelID, devEvt.MessageID, "🗓")
+	s.MessageReactionAdd(channelID, devEvt.MessageID, "🕑")
+	s.MessageReactionAdd(channelID, devEvt.MessageID, "🌍")
+	s.MessageReactionAdd(channelID, devEvt.MessageID, "⏳")
+	s.MessageReactionAdd(channelID, devEvt.MessageID, "👬")
 }

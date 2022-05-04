@@ -369,7 +369,7 @@ const (
 	EmojiRacehorse                        = "🐎"
 	EmojiPig2                             = "🐖"
 	EmojiGoat                             = "🐐"
-	EmojiRam                              = "🐏"
+	EmojiRAM                              = "🐏"
 	EmojiSheep                            = "🐑"
 	EmojiDog2                             = "🐕"
 	EmojiPoodle                           = "🐩"
@@ -952,7 +952,7 @@ const (
 	EmojiCapricorn                        = "♑️"
 	EmojiAquarius                         = "♒️"
 	EmojiPisces                           = "♓️"
-	EmojiId                               = "🆔"
+	EmojiID                               = "🆔"
 	EmojiAtomSymbol                       = "⚛️"
 	EmojiAccept                           = "🉑"
 	EmojiRadioactive                      = "☢️"
@@ -1454,6 +1454,7 @@ const (
 	EmojiTrollface                        = ""
 )
 
+//gocyclo:ignore
 // Emoji returns an emoji from multiple possible aliases
 func Emoji(name string) string {
 	switch strings.ToLower(name) {
@@ -2187,7 +2188,7 @@ func Emoji(name string) string {
 	case "goat":
 		return EmojiGoat
 	case "ram":
-		return EmojiRam
+		return EmojiRAM
 	case "sheep":
 		return EmojiSheep
 	case "dog2":
@@ -3353,7 +3354,7 @@ func Emoji(name string) string {
 	case "pisces":
 		return EmojiPisces
 	case "id":
-		return EmojiId
+		return EmojiID
 	case "atom_symbol":
 		return EmojiAtomSymbol
 	case "accept":

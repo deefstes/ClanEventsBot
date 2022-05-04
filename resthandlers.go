@@ -8,11 +8,11 @@ import (
 	"time"
 )
 
-type ErrorMessage struct {
+type errorMessage struct {
 	Message string `json:"message"`
 }
 
-func JSONError(w http.ResponseWriter, err interface{}, code int) {
+func jsonError(w http.ResponseWriter, err interface{}, code int) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(code)
@@ -25,8 +25,8 @@ func middlewareContentType(nextHandler func(http.ResponseWriter, *http.Request))
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		apikey := r.Header["X-Api-Key"]
-		if len(apikey) > 0 && apikey[0] != config.ApiKey {
-			JSONError(w, ErrorMessage{Message: "unauthorised"}, http.StatusUnauthorized)
+		if len(apikey) > 0 && apikey[0] != config.APIKey {
+			jsonError(w, errorMessage{Message: "unauthorised"}, http.StatusUnauthorized)
 			return
 		}
 		nextHandler(w, r)
@@ -38,10 +38,10 @@ func catchAllHandler(w http.ResponseWriter, r *http.Request) {
 	buf.ReadFrom(r.Body)
 	body := buf.String()
 
-	rsp := CatchAllResponse{
+	rsp := catchAllResponse{
 		Method:        r.Method,
-		RequestUri:    r.RequestURI,
-		Url:           r.URL,
+		RequestURI:    r.RequestURI,
+		URL:           r.URL,
 		ContentLength: r.ContentLength,
 		Host:          r.Host,
 		Proto:         r.Proto,
@@ -55,9 +55,9 @@ func catchAllHandler(w http.ResponseWriter, r *http.Request) {
 // GET /api/health
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
-		JSONError(
+		jsonError(
 			w,
-			UnsupportedResponse{SupportedMethods: []string{"GET"}},
+			unsupportedResponse{SupportedMethods: []string{"GET"}},
 			http.StatusMethodNotAllowed,
 		)
 		return
@@ -71,7 +71,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 		info = err.Error()
 	}
 
-	rsp := HealthResponse{
+	rsp := healthResponse{
 		Status:     status,
 		Info:       info,
 		DBResponse: d.String(),
@@ -85,9 +85,9 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 // GET /api/events?guildID={Guild_ID}
 func listEventsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
-		JSONError(
+		jsonError(
 			w,
-			UnsupportedResponse{SupportedMethods: []string{"GET"}},
+			unsupportedResponse{SupportedMethods: []string{"GET"}},
 			http.StatusMethodNotAllowed,
 		)
 		return
@@ -95,19 +95,19 @@ func listEventsHandler(w http.ResponseWriter, r *http.Request) {
 
 	guilID := r.URL.Query().Get("guildId")
 	if guilID == "" {
-		JSONError(w, ErrorMessage{Message: "guildId not provided"}, http.StatusBadRequest)
+		jsonError(w, errorMessage{Message: "guildId not provided"}, http.StatusBadRequest)
 		return
 	}
 
 	events, err := db.GetEvents(guilID, "all", time.Time{})
 	if err != nil {
-		JSONError(w, ErrorMessage{Message: err.Error()}, http.StatusInternalServerError)
+		jsonError(w, errorMessage{Message: err.Error()}, http.StatusInternalServerError)
 		return
 	}
 
 	rsp, err := json.Marshal(events)
 	if err != nil {
-		JSONError(w, ErrorMessage{Message: err.Error()}, http.StatusInternalServerError)
+		jsonError(w, errorMessage{Message: err.Error()}, http.StatusInternalServerError)
 		return
 	}
 

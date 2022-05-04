@@ -12,6 +12,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+//gocyclo:ignore
 // BotHelp is used to display a list of available commands or instructions on using a specified command
 func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	if len(command) == 1 {
@@ -183,6 +184,7 @@ func BotHelp(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
+//gocyclo:ignore
 // ListEvents is used to list all upcoming events on a specified (optional) date, for a specified (optional) user
 // ~listevents
 // ~listevents @username
@@ -327,7 +329,7 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 
 	// Find event in DB
 	event, err := db.GetEvent(g.ID, command[1])
-	if err == ErrNoRecords {
+	if err == errNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
@@ -341,7 +343,7 @@ func Details(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreat
 	eventLocation := defaultLocation
 	if event.TimeZone != "" {
 		tz, err := db.GetTimeZone(g.ID, event.TimeZone)
-		if err == ErrNoRecords {
+		if err == errNoRecords {
 			message = fmt.Sprintf("Say what? %s? EventsBot doesn't know any such time zone.", tz)
 			message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
@@ -387,7 +389,7 @@ func New(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, c
 	location, locAbbr := getLocation(g, s, m)
 
 	newid := getEventID(time.Now())
-	gv, ok := guildVars[g.ID]
+	gv, ok := guildVarsMap[g.ID]
 	if !ok {
 		s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
@@ -422,7 +424,7 @@ func New(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, c
 		Duration: 1,
 		TeamSize: 6,
 	}
-	newEvent := DevelopingEvent{
+	newEvent := developingEvent{
 		TriggerMessage: m,
 		State:          stateNew,
 		Event:          event,
@@ -431,17 +433,16 @@ func New(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, c
 	ShowDevelopingEvent(s, m, m.ChannelID, newEvent)
 }
 
+//gocyclo:ignore
 // NewEvent is used to create a new event with all values provided up front
 func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
-	var dateNdx, timeNdx, tzNdx, durationNdx, nameNdx, descrNdx, teamNdx = -1, -1, -1, -1, -1, -1, -1
+	var dateNdx, timeNdx, tzNdx, durationNdx, nameNdx, descrNdx, teamNdx int
+	tzNdx = -1
 
 	// Test for correct number of arguments
 	switch len(command) {
-	//case 2:
-	//	nameNdx = 1
-	//	descrNdx = 2
 	case 7:
 		dateNdx = 1
 		timeNdx = 2
@@ -481,7 +482,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 
 		// Check if timezone is known
 		tz, err := db.GetTimeZone(g.ID, locAbbr)
-		if err == ErrNoRecords {
+		if err == errNoRecords {
 			message = fmt.Sprintf("Say what? %s? EventsBot doesn't know any such time zone.", tz)
 			message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
@@ -554,7 +555,7 @@ func NewEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCrea
 	}
 
 	newid := getEventID(time.Now())
-	curUser := guildVars[g.ID].impersonated
+	curUser := guildVarsMap[g.ID].impersonated
 	if curUser.UserName == "" {
 		curUser = database.ClanUser{
 			UserName: m.Author.Username,
@@ -605,7 +606,7 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 		return
 	}
 
-	curUser := guildVars[g.ID].impersonated
+	curUser := guildVarsMap[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
 		curUser = database.ClanUser{
@@ -618,7 +619,7 @@ func Edit(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, 
 
 	// Find event in DB
 	event, err := db.GetEvent(g.ID, command[1])
-	if err == ErrNoRecords {
+	if err == errNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
@@ -669,7 +670,7 @@ func Rename(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 		return
 	}
 
-	curUser := guildVars[g.ID].impersonated
+	curUser := guildVarsMap[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
 		curUser = database.ClanUser{
@@ -682,7 +683,7 @@ func Rename(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 
 	// Find event in DB
 	event, err := db.GetEvent(g.ID, command[1])
-	if err == ErrNoRecords {
+	if err == errNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
@@ -734,7 +735,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		return
 	}
 
-	curUser := guildVars[g.ID].impersonated
+	curUser := guildVarsMap[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
 		curUser = database.ClanUser{
@@ -747,7 +748,7 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 
 	// Find event in DB
 	event, err := db.GetEvent(g.ID, command[1])
-	if err == ErrNoRecords {
+	if err == errNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
@@ -785,13 +786,14 @@ func CancelEvent(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	s.ChannelMessageSend(m.ChannelID, message)
 }
 
+//gocyclo:ignore
 // Signup is used to sign the author or a specified user up to an event
 // ~signup EventID
 // ~signup EventID @Username
 func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
 	message := ""
 
-	curUser := guildVars[g.ID].impersonated
+	curUser := guildVarsMap[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
 		curUser = database.ClanUser{
@@ -841,7 +843,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 
 	// Find event in DB
 	event, err := db.GetEvent(g.ID, command[1])
-	if err == ErrNoRecords {
+	if err == errNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
@@ -936,6 +938,7 @@ func Signup(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate
 	}
 }
 
+//gocyclo:ignore
 // Leave is used to remove the author or specified user from an event
 // ~leave EventID
 // ~leave EventID @Username
@@ -950,7 +953,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 		return
 	}
 
-	curUser := guildVars[g.ID].impersonated
+	curUser := guildVarsMap[g.ID].impersonated
 	curUser.DateTime = time.Now()
 	if curUser.UserName == "" {
 		curUser = database.ClanUser{
@@ -975,9 +978,9 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 			}
 		} else if strings.HasPrefix(userName, "@") {
 			removeUser = database.ClanUser{
-				UserName:           userName[1:],
-				Nickname:           userName[1:],
-				Mention_deprecated: userName[1:],
+				UserName:          userName[1:],
+				Nickname:          userName[1:],
+				MentionDeprecated: userName[1:],
 			}
 		} else {
 			message = "Whoah, not so sure about those arguments. EventsBot is confused :confounded:"
@@ -989,7 +992,7 @@ func Leave(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate,
 
 	// Find event in DB
 	event, err := db.GetEvent(g.ID, command[1])
-	if err == ErrNoRecords {
+	if err == errNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers :grimacing:", command[1]))
 		return
 	} else if err != nil {
@@ -1136,13 +1139,13 @@ func Impersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		DateTime: time.Now(),
 	}
 
-	guildVars[g.ID].impersonated = user
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is now impersonated\r\nEventsBot is regarding this with some sense of apprehension :bust_in_silhouette:", guildVars[g.ID].impersonated.DisplayName()))
+	guildVarsMap[g.ID].impersonated = user
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is now impersonated\r\nEventsBot is regarding this with some sense of apprehension :bust_in_silhouette:", guildVarsMap[g.ID].impersonated.DisplayName()))
 }
 
 // Unimpersonate is used to return to the original user's identity after impersonating another user
 func Unimpersonate(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCreate, command []string) {
-	guildVars[g.ID].impersonated = database.ClanUser{}
+	guildVarsMap[g.ID].impersonated = database.ClanUser{}
 	s.ChannelMessageSend(m.ChannelID, "No more of this impersonation business!")
 }
 
@@ -1339,7 +1342,7 @@ func RemindNaughty(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messag
 		return
 	}
 
-	gv, ok := guildVars[g.ID]
+	gv, ok := guildVarsMap[g.ID]
 	if !ok {
 		s.ChannelMessageSend(m.ChannelID, ":scream::scream::scream:Something very weird happened when trying to set the naughty list reminder frequency. Sorry but EventsBot has no answers for you :cry:")
 		return
@@ -1379,7 +1382,7 @@ func AddServer(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageCre
 		return
 	}
 
-	guildVars[g.ID] = GetGuildVars(guild)
+	guildVarsMap[g.ID] = getGuildVars(guild)
 
 	message = fmt.Sprintf("%s has been registered with EventsBot", g.Name)
 	s.ChannelMessageSend(m.ChannelID, message)
@@ -1399,7 +1402,7 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 	}
 	if len(command) > 3 {
 		if len(command[3]) != 8 || utf8.RuneCountInString(command[3]) != 2 {
-			message = "Huh? What kind of an emoji is that. Pick somethign better please :expressionless:"
+			message = "Huh? What kind of an emoji is that. Pick something better please :expressionless:"
 			message = fmt.Sprintf("%s\r\nFor help with adding a time zone, type the following:\r\n```%shelp addtimezone```", message, config.CommandPrefix)
 			s.ChannelMessageSend(m.ChannelID, message)
 
@@ -1414,7 +1417,7 @@ func AddTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.MessageC
 		return
 	}
 
-	gv, ok := guildVars[g.ID]
+	gv, ok := guildVarsMap[g.ID]
 	if !ok {
 		s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
@@ -1487,7 +1490,7 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 	}
 
 	// Get guild variables
-	gv, ok := guildVars[g.ID]
+	gv, ok := guildVarsMap[g.ID]
 	if !ok {
 		s.ChannelMessageSend(m.ChannelID, "EventsBot had trouble obtaining the guild information :no_mouth:")
 		return
@@ -1495,7 +1498,7 @@ func RemoveTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Messa
 
 	// Remove time zone from TimeZones collection
 	err := db.DeleteTimeZone(g.ID, command[1])
-	if err == ErrNoRecords {
+	if err == errNoRecords {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Are you trying to glitch the universe? %s is not in the list of time zones. :shrug:", command[1]))
 		return
 	} else if err != nil {
@@ -1630,7 +1633,7 @@ func RoleTimeZone(g *discordgo.Guild, s *discordgo.Session, m *discordgo.Message
 	// Check that the time zone exists
 	tz := command[2]
 	_, err := db.GetTimeZone(g.ID, tz)
-	if err == ErrNoRecords {
+	if err == errNoRecords {
 		message = fmt.Sprintf("Say what? %s? EventsBot doesn't know any such time zone.", tz)
 		message = fmt.Sprintf("%s\r\nFor help with linking server roles to time zones, type the following:\r\n```%shelp roletimezone```", message, config.CommandPrefix)
 		s.ChannelMessageSend(m.ChannelID, message)

@@ -26,24 +26,24 @@ var (
 	db              *database.Database
 	discordSession  *discordgo.Session
 	defaultLocation *time.Location
-	guildVars       map[string]*GuildVars
-	ErrNoRecords    = errors.New("no records")
+	guildVarsMap    map[string]*guildVars
+	errNoRecords    = errors.New("no records")
 )
 
-type GuildVars struct {
+type guildVars struct {
 	guild          database.Guild
 	impersonated   database.ClanUser
 	timezones      []database.TimeZone
 	tzByAbbr       map[string]database.TimeZone
 	tzByEmoji      map[string]database.TimeZone
-	escrowEvents   map[string]DevelopingEvent
+	escrowEvents   map[string]developingEvent
 	defaultChannel string
 	insultInterval int64
 	insultRndFact  float64
 	insultTicker   *time.Ticker
 }
 
-func (g *GuildVars) startInsultTimer() {
+func (g *guildVars) startInsultTimer() {
 	g.stopInsultTimer()
 	if g.insultInterval == 0 {
 		return
@@ -73,7 +73,7 @@ func (g *GuildVars) startInsultTimer() {
 	}()
 }
 
-func (g *GuildVars) stopInsultTimer() {
+func (g *guildVars) stopInsultTimer() {
 	if g.insultTicker != nil {
 		fmt.Println("stopping insult timer on guild", g.guild.ID)
 		g.insultTicker.Stop()
@@ -99,11 +99,11 @@ func main() {
 	}
 
 	liveTime = time.Now()
-	guildVars = make(map[string]*GuildVars)
+	guildVarsMap = make(map[string]*guildVars)
 	var err error
 
 	// Read config file
-	config, err = ReadConfig()
+	config, err = ReadConfigENV()
 	if err != nil {
 		fmt.Println("FATAL", "reading config file", err)
 		os.Exit(1)
@@ -133,7 +133,7 @@ func main() {
 	}
 
 	for _, guild := range guilds {
-		guildVars[guild.ID] = GetGuildVars(guild)
+		guildVarsMap[guild.ID] = getGuildVars(guild)
 	}
 
 	// Create a new Discord session using the provided bot token.
@@ -157,7 +157,7 @@ func main() {
 	}()
 
 	// Set up a ticker for each registered guild to deliver insults
-	for _, g := range guildVars {
+	for _, g := range guildVarsMap {
 		g.startInsultTimer()
 		defer g.stopInsultTimer()
 	}
@@ -178,9 +178,9 @@ func main() {
 	http.HandleFunc("/api/health", middlewareContentType(healthHandler))
 	http.HandleFunc("/api/events", middlewareContentType(listEventsHandler))
 
-	fmt.Println("starting http listener on port", config.HttpPort)
+	fmt.Println("starting http listener on port", config.HTTPPort)
 	go func() {
-		err := http.ListenAndServe(fmt.Sprintf(":%d", config.HttpPort), nil)
+		err := http.ListenAndServe(fmt.Sprintf(":%d", config.HTTPPort), nil)
 		fmt.Println("ERROR", fmt.Sprintf("http listener: %v", err))
 	}()
 
@@ -191,8 +191,8 @@ func main() {
 	<-sc
 }
 
-func GetGuildVars(g database.Guild) *GuildVars {
-	ee := make(map[string]DevelopingEvent)
+func getGuildVars(g database.Guild) *guildVars {
+	ee := make(map[string]developingEvent)
 
 	tzs, err := db.GetTimeZones(g.ID)
 	if err != nil {
@@ -207,7 +207,7 @@ func GetGuildVars(g database.Guild) *GuildVars {
 		return nil
 	}
 
-	return &GuildVars{
+	return &guildVars{
 		guild:          g,
 		timezones:      tzs,
 		tzByAbbr:       tzBA,
@@ -238,13 +238,14 @@ func constructTZMaps(tzs []database.TimeZone) (tzBA map[string]database.TimeZone
 	return tzBA, tzBE
 }
 
+//gocyclo:ignore
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Fprintf(os.Stderr, "%+v", r)
-			message := "Well this is embarrasing :flushed:."
+			message := "Well this is embarrassing :flushed:."
 			message = fmt.Sprintf("%s\r\nSomething went wrong and I don't know what it is. We shall never speak of this again.", message)
 			sendMessage(m.ChannelID, message)
 		}
@@ -390,9 +391,9 @@ func archiveEvents(guildID string) {
 	}
 }
 
-func deliverInsult(g *GuildVars) {
+func deliverInsult(g *guildVars) {
 	insultee, err := getInsultee(g.guild.ID)
-	if err == ErrNoRecords {
+	if err == errNoRecords {
 		return
 	} else if err != nil {
 		fmt.Println("ERROR", fmt.Sprintf("delivering insult on guild %s:", g.guild.ID), err)
@@ -410,7 +411,7 @@ func getInsultee(guildID string) (*database.ClanUser, error) {
 		return nil, fmt.Errorf("database: %w", err)
 	}
 	if len(insultees) == 0 {
-		return nil, ErrNoRecords
+		return nil, errNoRecords
 	}
 
 	index := rand.Intn(len(insultees))

@@ -18,12 +18,12 @@ type Configuration struct {
 	MongoDB       string `yaml:"MongoDB" ENV:"MONGODB"`
 	ServiceTimer  int64  `yaml:"ServiceTimer" ENV:"SVCTIMER"`
 	DebugLevel    int    `yaml:"DebugLevel" ENV:"LOGLEVEL"`
-	HttpPort      int    `yaml:"HTTPPort" ENV:"PORT"`
-	ApiKey        string `yaml:"APIKey" ENV:"APIKEY"`
+	HTTPPort      int    `yaml:"HTTPPort" ENV:"PORT"`
+	APIKey        string `yaml:"APIKey" ENV:"APIKEY"`
 }
 
-// ReadConfig reads system configuration from a YAML config file and returns a Configuration struct
-func ReadConfig_old() (Configuration, error) {
+// ReadConfigYAML reads system configuration from a YAML config file and returns a Configuration struct
+func ReadConfigYAML() (Configuration, error) {
 	var AppConfig Configuration
 	exeFullPath, err := os.Executable()
 	if err != nil {
@@ -52,7 +52,8 @@ func ReadConfig_old() (Configuration, error) {
 	return AppConfig, nil
 }
 
-func ReadConfig() (Configuration, error) {
+// ReadConfigENV reads system config from ENV variables
+func ReadConfigENV() (Configuration, error) {
 	var AppConfig Configuration
 	err := envtag.Unmarshal("CEB_", &AppConfig)
 	if err != nil {
