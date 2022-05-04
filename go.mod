@@ -1,4 +1,4 @@
-module ClanEventsBot
+module github.com/deefstes/ClanEventsBot
 
 go 1.13
 
