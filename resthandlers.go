@@ -73,6 +73,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 	rsp := healthResponse{
 		Status:     status,
+		Version:    buildNumber,
 		Info:       info,
 		DBResponse: d.String(),
 		LiveTime:   liveTime,

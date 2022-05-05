@@ -22,6 +22,7 @@ type catchAllResponse struct {
 
 type healthResponse struct {
 	Status     string    `json:"status,omitempty"`
+	Version    string    `json:"version,omitempty"`
 	Info       string    `json:"info,omitempty"`
 	DBResponse string    `json:"databaseResponse,omitempty"`
 	LiveTime   time.Time `json:"liveTime,omitempty"`

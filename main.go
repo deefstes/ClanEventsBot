@@ -85,7 +85,7 @@ func (g *guildVars) stopInsultTimer() {
 	if g.insultTicker != nil {
 		log.Println(logging.LogEntry{
 			Severity: "INFO",
-			Message:  fmt.Sprint("stopping insult timer on guild", g.guild.ID),
+			Message:  fmt.Sprintf("stopping insult timer on guild %s", g.guild.ID),
 		})
 		g.insultTicker.Stop()
 	}
@@ -130,7 +130,7 @@ func main() {
 	if err != nil {
 		log.Println(logging.LogEntry{
 			Severity: "ERROR",
-			Message:  fmt.Sprintln("reading config: %+v", err),
+			Message:  fmt.Sprintf("reading config: %+v", err),
 		})
 		os.Exit(1)
 	}
@@ -149,7 +149,7 @@ func main() {
 	if err != nil {
 		log.Println(logging.LogEntry{
 			Severity: "CRITICAL",
-			Message:  fmt.Sprint("connecting to database:", err),
+			Message:  fmt.Sprintf("connecting to database: %+v", err),
 		})
 		os.Exit(2)
 	}
@@ -159,7 +159,7 @@ func main() {
 	if err != nil {
 		log.Println(logging.LogEntry{
 			Severity: "CRITICAL",
-			Message:  fmt.Sprint("reading guilds:", err),
+			Message:  fmt.Sprintf("reading guilds: %+v", err),
 		})
 		os.Exit(3)
 	}
@@ -179,7 +179,7 @@ func main() {
 	if err != nil {
 		log.Println(logging.LogEntry{
 			Severity: "CRITICAL",
-			Message:  fmt.Sprint("creating Discord session:", err),
+			Message:  fmt.Sprintf("creating Discord session: %+v", err),
 		})
 		os.Exit(4)
 	}
@@ -190,7 +190,7 @@ func main() {
 	// Set up a svcTicker that triggers a service routine every n minutes
 	log.Println(logging.LogEntry{
 		Severity: "INFO",
-		Message:  fmt.Sprintf("starting service routine to fire every", config.ServiceTimer, "minutes"),
+		Message:  fmt.Sprintf("starting service routine to fire every %d minutes", config.ServiceTimer),
 	})
 	svcTicker := time.NewTicker(time.Duration(config.ServiceTimer) * time.Minute)
 	defer svcTicker.Stop()
@@ -215,7 +215,7 @@ func main() {
 	if err != nil {
 		log.Println(logging.LogEntry{
 			Severity: "CRITICAL",
-			Message:  fmt.Sprint("opening Discord connection:", err),
+			Message:  fmt.Sprintf("opening Discord connection: %+v", err),
 		})
 		os.Exit(5)
 	}
@@ -227,7 +227,7 @@ func main() {
 
 	log.Println(logging.LogEntry{
 		Severity: "INFO",
-		Message:  fmt.Sprint("starting http listener on port", config.HTTPPort),
+		Message:  fmt.Sprintf("starting http listener on port %d", config.HTTPPort),
 	})
 	go func() {
 		err := http.ListenAndServe(fmt.Sprintf(":%d", config.HTTPPort), nil)
