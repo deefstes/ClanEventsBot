@@ -1,11 +1,11 @@
 package main
 
 import (
-	"ClanEventsBot/database"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/deefstes/ClanEventsBot/database"
+	"github.com/deefstes/ClanEventsBot/logging"
 	"github.com/kenshaw/baseconv"
 )
 
@@ -51,7 +53,10 @@ func (g *guildVars) startInsultTimer() {
 
 	d := time.Duration(g.insultInterval) * time.Minute
 	dd := time.Duration(float64(d) * g.insultRndFact)
-	fmt.Println("starting insult timer on guild", g.guild.ID, "to fire every", d, "±", dd)
+	log.Println(logging.LogEntry{
+		Severity: "INFO",
+		Message:  fmt.Sprintf("starting insult timer on guild %s to fire every %s ±%s", g.guild.ID, d, dd),
+	})
 	g.insultTicker = time.NewTicker(time.Duration(g.insultInterval) * time.Minute)
 	// defer g.insultTicker.Stop()
 	go func() {
@@ -67,7 +72,10 @@ func (g *guildVars) startInsultTimer() {
 				dur = time.Duration(rand.Intn(max-min)+min) * time.Second
 			}
 			g.insultTicker.Reset(dur)
-			fmt.Println("resetting insult timer on guild", g.guild.ID, "to fire after", dur)
+			log.Println(logging.LogEntry{
+				Severity: "DEBUG",
+				Message:  fmt.Sprintf("resetting insult timer on guild %s to fire after %s", g.guild.ID, dur),
+			})
 			deliverInsult(g)
 		}
 	}()
@@ -75,15 +83,28 @@ func (g *guildVars) startInsultTimer() {
 
 func (g *guildVars) stopInsultTimer() {
 	if g.insultTicker != nil {
-		fmt.Println("stopping insult timer on guild", g.guild.ID)
+		log.Println(logging.LogEntry{
+			Severity: "INFO",
+			Message:  fmt.Sprint("stopping insult timer on guild", g.guild.ID),
+		})
 		g.insultTicker.Stop()
 	}
+}
+
+func init() {
+	// Disable log prefixes such as the default timestamp.
+	// Prefix text prevents the message from being parsed as JSON.
+	// A timestamp is added when shipping logs to Cloud Logging.
+	log.SetFlags(0)
 }
 
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Fprintf(os.Stderr, "%s - FATAL ERROR: %+v\r\n", time.Now().Format("2006-01-02 15:04:05"), r)
+			log.Println(logging.LogEntry{
+				Severity: "CRITICAL",
+				Message:  fmt.Sprintf("%+v", r),
+			})
 		}
 	}()
 
@@ -91,12 +112,14 @@ func main() {
 		buildNumber = "N/A"
 	}
 
-	fmt.Printf("ClanEventsBot (build number %s)", buildNumber)
-	if config.DebugLevel > 0 {
-		fmt.Printf(" with DebugLevel=%d\r\n", config.DebugLevel)
-	} else {
-		fmt.Println()
-	}
+	log.Println(logging.LogEntry{
+		Severity: "INFO",
+		Message:  fmt.Sprintf("ClanEventsBot (build number %s)", buildNumber),
+	})
+	log.Println(logging.LogEntry{
+		Severity: "DEBUG",
+		Message:  fmt.Sprintf("DebugLevel=%d", config.DebugLevel),
+	})
 
 	liveTime = time.Now()
 	guildVarsMap = make(map[string]*guildVars)
@@ -105,12 +128,18 @@ func main() {
 	// Read config file
 	config, err = ReadConfigENV()
 	if err != nil {
-		fmt.Println("FATAL", "reading config file", err)
+		log.Println(logging.LogEntry{
+			Severity: "ERROR",
+			Message:  fmt.Sprintln("reading config: %+v", err),
+		})
 		os.Exit(1)
 	}
 
 	if config.DebugLevel > 1 {
-		fmt.Printf("%+v\r\n", config)
+		log.Println(logging.LogEntry{
+			Severity: "DEBUG",
+			Message:  fmt.Sprintf("%+v", config),
+		})
 	}
 
 	defaultLocation, _ = time.LoadLocation("Europe/London")
@@ -118,18 +147,27 @@ func main() {
 	// Connect to MongoDB
 	db, err = database.NewDatabase(config.MongoDB)
 	if err != nil {
-		fmt.Println("FATAL", "connecting to database:", err)
+		log.Println(logging.LogEntry{
+			Severity: "CRITICAL",
+			Message:  fmt.Sprint("connecting to database:", err),
+		})
 		os.Exit(2)
 	}
 	defer db.Close()
 
 	guilds, err := db.GetGuilds()
 	if err != nil {
-		fmt.Println("FATAL", "reading guilds:", err)
+		log.Println(logging.LogEntry{
+			Severity: "CRITICAL",
+			Message:  fmt.Sprint("reading guilds:", err),
+		})
 		os.Exit(3)
 	}
 	if len(guilds) == 0 {
-		fmt.Printf("No registered guilds\r\n")
+		log.Println(logging.LogEntry{
+			Severity: "INFO",
+			Message:  "No registered guilds",
+		})
 	}
 
 	for _, guild := range guilds {
@@ -139,7 +177,10 @@ func main() {
 	// Create a new Discord session using the provided bot token.
 	discordSession, err = discordgo.New("Bot " + config.Token)
 	if err != nil {
-		fmt.Println("FATAL", "creating Discord session:", err)
+		log.Println(logging.LogEntry{
+			Severity: "CRITICAL",
+			Message:  fmt.Sprint("creating Discord session:", err),
+		})
 		os.Exit(4)
 	}
 	defer discordSession.Close()
@@ -147,7 +188,10 @@ func main() {
 	discordSession.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsGuilds | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions)
 
 	// Set up a svcTicker that triggers a service routine every n minutes
-	fmt.Println("starting service routine to fire every", config.ServiceTimer, "minutes")
+	log.Println(logging.LogEntry{
+		Severity: "INFO",
+		Message:  fmt.Sprintf("starting service routine to fire every", config.ServiceTimer, "minutes"),
+	})
 	svcTicker := time.NewTicker(time.Duration(config.ServiceTimer) * time.Minute)
 	defer svcTicker.Stop()
 	go func() {
@@ -169,7 +213,10 @@ func main() {
 	// Open a websocket connection to Discord and begin listening.
 	err = discordSession.Open()
 	if err != nil {
-		fmt.Println("FATAL", "opening Discord connection:", err)
+		log.Println(logging.LogEntry{
+			Severity: "CRITICAL",
+			Message:  fmt.Sprint("opening Discord connection:", err),
+		})
 		os.Exit(5)
 	}
 
@@ -178,14 +225,19 @@ func main() {
 	http.HandleFunc("/api/health", middlewareContentType(healthHandler))
 	http.HandleFunc("/api/events", middlewareContentType(listEventsHandler))
 
-	fmt.Println("starting http listener on port", config.HTTPPort)
+	log.Println(logging.LogEntry{
+		Severity: "INFO",
+		Message:  fmt.Sprint("starting http listener on port", config.HTTPPort),
+	})
 	go func() {
 		err := http.ListenAndServe(fmt.Sprintf(":%d", config.HTTPPort), nil)
-		fmt.Println("ERROR", fmt.Sprintf("http listener: %v", err))
+		log.Println(logging.LogEntry{
+			Severity: "ERROR",
+			Message:  fmt.Sprintf("http listener: %v", err),
+		})
 	}()
 
 	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println("Press CTRL-C to exit")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
@@ -196,14 +248,20 @@ func getGuildVars(g database.Guild) *guildVars {
 
 	tzs, err := db.GetTimeZones(g.ID)
 	if err != nil {
-		fmt.Println("ERROR", err)
+		log.Println(logging.LogEntry{
+			Severity: "ERROR",
+			Message:  fmt.Sprintf("%+v", err),
+		})
 		return nil
 	}
 	tzBA, tzBE := constructTZMaps(tzs)
 
 	conf, err := db.GetClanConfig(g.ID)
 	if err != nil {
-		fmt.Println("ERROR", err)
+		log.Println(logging.LogEntry{
+			Severity: "INFO",
+			Message:  fmt.Sprintf("%+v", err),
+		})
 		return nil
 	}
 
@@ -244,7 +302,10 @@ func constructTZMaps(tzs []database.TimeZone) (tzBA map[string]database.TimeZone
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Fprintf(os.Stderr, "%+v", r)
+			log.Println(logging.LogEntry{
+				Severity: "ERROR",
+				Message:  fmt.Sprintf("%+v", r),
+			})
 			message := "Well this is embarrassing :flushed:."
 			message = fmt.Sprintf("%s\r\nSomething went wrong and I don't know what it is. We shall never speak of this again.", message)
 			sendMessage(m.ChannelID, message)
@@ -274,9 +335,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if config.DebugLevel > 0 {
-		fmt.Printf("Guild=%s, Author=%s(%s), Command=%s\r\n", guild.Name, m.Author.Username, m.Author.ID, command)
-	}
+	log.Println(logging.LogEntry{
+		Severity: "DEBUG",
+		Message:  fmt.Sprintf("Guild=%s, Author=%s(%s), Command=%s\r\n", guild.Name, m.Author.Username, m.Author.ID, command),
+	})
 
 	if strings.HasPrefix(command, "help") {
 		BotHelp(guild, s, m, commandElements)
@@ -354,11 +416,17 @@ func sendMessage(channelID string, message string) {
 func serviceRoutine() {
 	guilds, err := db.GetGuilds()
 	if err != nil {
-		fmt.Println("ERROR", err)
+		log.Println(logging.LogEntry{
+			Severity: "ERROR",
+			Message:  fmt.Sprintf("%+v", err),
+		})
 		return
 	}
 	if len(guilds) == 0 {
-		fmt.Println("No registered guilds")
+		log.Println(logging.LogEntry{
+			Severity: "INFO",
+			Message:  "No registered guilds",
+		})
 		return
 	}
 
@@ -387,7 +455,10 @@ func getArgs(s string) []string {
 
 func archiveEvents(guildID string) {
 	if err := db.ArchiveEvents(guildID); err != nil {
-		fmt.Println("ERROR", err)
+		log.Println(logging.LogEntry{
+			Severity: "ERROR",
+			Message:  fmt.Sprintf("%+v", err),
+		})
 	}
 }
 
@@ -396,7 +467,10 @@ func deliverInsult(g *guildVars) {
 	if err == errNoRecords {
 		return
 	} else if err != nil {
-		fmt.Println("ERROR", fmt.Sprintf("delivering insult on guild %s:", g.guild.ID), err)
+		log.Println(logging.LogEntry{
+			Severity: "INFO",
+			Message:  fmt.Sprintf("delivering insult on guild %s: %+v", g.guild.ID, err),
+		})
 		return
 	}
 	message := getInsult(insultee.Mention())

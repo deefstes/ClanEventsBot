@@ -1,11 +1,13 @@
 package main
 
 import (
-	"ClanEventsBot/database"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/deefstes/ClanEventsBot/database"
+	"github.com/deefstes/ClanEventsBot/logging"
 )
 
 type eventState int
@@ -237,7 +239,10 @@ func ProcessReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 		return
 	}
 
-	fmt.Printf("%s reaction received for message %s", m.MessageReaction.Emoji.Name, event.MessageID)
+	log.Println(logging.LogEntry{
+		Severity: "DEBUG",
+		Message:  fmt.Sprintf("%s reaction received for message %s", m.MessageReaction.Emoji.Name, event.MessageID),
+	})
 
 	// Respond to reaction based on state of developing event
 	switch event.State {
@@ -480,7 +485,10 @@ func EditEvent(s *discordgo.Session, m *discordgo.MessageCreate, channelID strin
 			s.ChannelMessageSend(channelID, fmt.Sprintf("EventsBot could find no such event. Are you sure you got that Event ID of %s right? Them's finicky numbers. :grimacing:", eventID))
 			return
 		} else if err != nil {
-			fmt.Println("ERROR", "database:", err)
+			log.Println(logging.LogEntry{
+				Severity: "ERROR",
+				Message:  fmt.Sprintf("database: %+v", err),
+			})
 			s.ChannelMessageSend(channelID, ":scream::scream::scream:Something very weird happened when trying to edit this event. Sorry but EventsBot has no answers for you :cry:")
 			return
 		}

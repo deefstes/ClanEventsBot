@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/deefstes/ClanEventsBot/logging"
 	"github.com/deefstes/envtag"
 
 	yaml "gopkg.in/yaml.v2"
@@ -27,25 +29,37 @@ func ReadConfigYAML() (Configuration, error) {
 	var AppConfig Configuration
 	exeFullPath, err := os.Executable()
 	if err != nil {
-		fmt.Println("Error getting full executable path:", err.Error())
+		log.Println(logging.LogEntry{
+			Severity: "ERROR",
+			Message:  fmt.Sprintf("getting full executable path: %+v", err),
+		})
 		return AppConfig, err
 	}
 
 	ExeDirPath, err := filepath.Abs(filepath.Dir(exeFullPath))
 	if err != nil {
-		fmt.Println("Error getting absolute executable path:", err.Error())
+		log.Println(logging.LogEntry{
+			Severity: "ERROR",
+			Message:  fmt.Sprintf("getting absolute executable path: %+v", err),
+		})
 		return AppConfig, err
 	}
 
 	yamlFile, err := ioutil.ReadFile(filepath.Join(ExeDirPath, "ClanEventsBot.yaml"))
 	if err != nil {
-		fmt.Println("Error reading config file:", err.Error())
+		log.Println(logging.LogEntry{
+			Severity: "ERROR",
+			Message:  fmt.Sprintf("reading config file: %+v", err),
+		})
 		return AppConfig, err
 	}
 
 	err = yaml.Unmarshal(yamlFile, &AppConfig)
 	if err != nil {
-		fmt.Println("Error unmarshalling config file:", err.Error())
+		log.Println(logging.LogEntry{
+			Severity: "ERROR",
+			Message:  fmt.Sprintf("unmarshalling config file: %+v", err),
+		})
 		return AppConfig, err
 	}
 

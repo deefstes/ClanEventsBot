@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
+	"github.com/deefstes/ClanEventsBot/logging"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -41,12 +43,21 @@ func NewDatabase(connString string) (*Database, error) {
 	}
 
 	// Attempt connecting to the database
-	fmt.Println("DEBUG", "attempting db connection")
+	log.Println(logging.LogEntry{
+		Severity: "DEBUG",
+		Message:  "attempting db connection",
+	})
 	err = client.Ping(ctx, readpref.Primary())
 	if err != nil {
-		fmt.Println(" INFO", "unable to ping mongodb, continuing anyway")
+		log.Println(logging.LogEntry{
+			Severity: "INFO",
+			Message:  "unable to ping mongodb, continuing anyway",
+		})
 	} else {
-		fmt.Println("DEBUG", "db connection successful")
+		log.Println(logging.LogEntry{
+			Severity: "DEBUG",
+			Message:  "db connection successful",
+		})
 	}
 
 	rsp := &Database{
